@@ -357,6 +357,18 @@
       "reader": { "manifest_version": 1, "schema_version": 1 },
       "mutations": [{ "operation": "set", "path": "/coverage/sources/0/stale_at", "value": "2026-08-30T08:00:00Z" }],
       "expected_error_codes": ["FRESHNESS_BOUND_INVALID"]
+    },
+    {
+      "name": "reject dropping the NVD alternative from CVE metadata lineage",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "delete_matching", "path": "/field_lineage", "match": { "table": "cve_metadata_observations", "field": "cve_id", "source_id": "patch8_nvd", "source_field": "cve.id" } }],
+      "expected_error_codes": ["OUTPUT_LEDGER_INVALID"]
+    },
+    {
+      "name": "reject dropping configuration-root operator lineage",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "delete_matching", "path": "/field_lineage", "match": { "table": "configuration_node_observations", "field": "operator", "source_id": "patch8_nvd", "source_field": "cve.configurations[].operator" } }],
+      "expected_error_codes": ["OUTPUT_LEDGER_INVALID"]
     }
   ]
 }

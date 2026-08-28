@@ -10,8 +10,8 @@ the historical Worker/D1 service with a static SvelteKit application intended fo
 | Legacy interface restoration | **live-verified** | The historical Patch8 layout, dashboard, routes, components, brand assets, tokens, responsive behaviour, and current visible copy are locked by tests and deployed in [commit `1b932e3`](https://github.com/link42-au/patch8/commit/1b932e34). Future data work may make only minimal semantic copy/meta/disabled-control changes required for honest unavailable/partial/stale states, without route, layout, or visual redesign. |
 | Static Pages shell | **live-verified** | [Hosted run 33160759689](https://github.com/link42-au/patch8/actions/runs/33160759689) verified the restored legacy interface at [`link42-au.github.io/patch8/`](https://link42-au.github.io/patch8/). This status does not claim data-backed capability. |
 | DuckDB-Wasm data client | **in progress** | Synthetic query-routed Parquet, deterministic fixtures, prepared SQL, corrupt-current fallback, local Chromium/Firefox/Playwright WebKit, and immutable public-HF Chromium range proofs pass without changing the legacy UI. Actual desktop/mobile Safari, cache, and memory evidence remain incomplete; see [`docs/p2-duckdb-proof.md`](docs/p2-duckdb-proof.md). |
-| v1 data and release contracts | **source-complete; ingestion not implemented** | [`docs/data-scope-v1.md`](docs/data-scope-v1.md) is implemented as a closed source policy, exact ordered table schemas and keys, an output-lineage ledger, immutable reviewed version baselines, manifest schemas, validator, 21 source-policy fixtures, and 57 manifest fixtures under [`contracts/`](contracts/). |
-| Patch8 dataset builder | **planned; not implemented** | An app-owned Python pipeline will normalize approved CVE Program, NVD, CISA KEV, CVE-linked GitHub Advisory Database, CISA Vulnrichment, and MITRE CWE fields. |
+| v1 data and release contracts | **P3b source-complete; ingestion not implemented** | Contract 2 / policy 2.0.0 adds source-specific CVE metadata, complete ordered NVD configuration nodes, the exact CVSS-v2 severity path, and stable KEV identity. Exact schemas, multi-source/multi-path lineage, immutable baselines, 23 source-policy fixtures, and 59 manifest fixtures pass under [`contracts/`](contracts/). |
+| Patch8 dataset builder | **planned; not implemented** | P3b clears the representation blocker for a standard-library P4 pipeline. No source adapter or production dataset is claimed by the contract transition. |
 | Public dataset | **P2 canary live-verified; release blocked** | The public, ungated Hugging Face dataset [`link42-au/patch`](https://huggingface.co/datasets/link42-au/patch) serves the synthetic P2 canary anonymously at manifest revision `aa4e13c4564924c12a16720d8bebe57208dfccdd`. It does not yet contain a verified Patch8 vulnerability release; the local full build and scoped publisher write/readback remain pending. |
 | FIRST EPSS | **disabled** | No Link42 fetch, cache, dataset, history, or republication is authorized by v1. |
 | OSV | **disabled for first release** | It awaits an enforceable home-database licence registry. |
@@ -68,7 +68,7 @@ needs an installed Chromium runtime; the Pages workflow installs it and runs bot
 ## Evidence carried into this repository
 
 - [`contracts/`](contracts/) contains the P3 app-owned source-policy, content, and immutable Parquet manifest contracts
-  plus 78 synthetic positive/fail-closed fixtures. These are source evidence, not a built or published v1 dataset.
+  plus 82 synthetic positive/fail-closed fixtures. These are source evidence, not a built or published v1 dataset.
 - [`docs/licensing/patch8.md`](docs/licensing/patch8.md) and
   [`docs/licensing/source-policy.json`](docs/licensing/source-policy.json) are the Patch8 rights evidence and closed
   public-dataset registry.

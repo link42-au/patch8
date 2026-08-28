@@ -119,15 +119,17 @@ extra field part of v1.
 
 - Accepted identity/dates: `cve.id`, `cve.published`, `cve.lastModified`, and `cve.sourceIdentifier`.
 - Accepted CVSS: NIST/NVD-authored metric `source`, `type`, `cvssData.version`, `vectorString`, `baseScore`, and
-  `baseSeverity`. All accepted v4.0, v3.1, v3.0, and v2 observations are retained; CNA/vendor metrics require separately
+  `baseSeverity`. CVSS v2's exact API shape places `baseSeverity` on `cve.metrics.cvssMetricV2[]`, outside `cvssData`;
+  policy 2.0.0 authorizes that one additional exact path. All accepted v4.0, v3.1, v3.0, and v2 observations are retained; CNA/vendor metrics require separately
   proven CVE lineage and are otherwise rejected.
 - Accepted weakness data: normalized `CWE-N` identifiers from NVD weakness descriptions; `NVD-CWE-noinfo`,
   `NVD-CWE-Other`, prose, and unparseable identifiers are not CWE associations.
 - Accepted applicability: vulnerable CPE 2.3 URI, match-criteria identifier when covered by policy, the exact raw
   configuration/node structure, `operator`, `negate`, `vulnerable`, match-criteria identifier, and all four explicit
-  start/end including/excluding version bounds. P3 adds only those upstream structural paths to the closed NVD machine
-  allow-list. `configuration_id`, `node_id`, and `parent_node_id` are Link42-derived stable identities made from the
-  pinned source path/index; they are not NVD fields and must appear in the closed derivation ledger before output.
+  start/end including/excluding version bounds. `configuration_node_observations` retains one ordered row for every
+  configuration root and every child node, including empty nodes, while `affected_software` retains only CPE matches
+  and points back to the exact node. `configuration_id`, `node_id`, and `parent_node_id` are Link42-derived stable
+  identities made from the source path/index; they are not NVD fields and remain in the closed derivation ledger.
   Patch8 preserves the Boolean configuration tree; a CPE observation is labelled
   “listed in NVD applicability” and is not presented as vendor confirmation.
 - Accepted references: HTTPS URL and NVD tags. The linked title, body, file, vendor comment, and attachment are not read
@@ -149,6 +151,8 @@ extra field part of v1.
   authoritative: a removed CVE becomes `kev_status=not_listed`/`in_kev=false` and emits a removal event rather than
   remaining sticky. Without a complete reconciliation it becomes `unknown`/null instead.
 - Not accepted: inferred scores, inferred affected versions, linked vendor content, or a raw JSON/CSV mirror.
+- Catalogue version and release time are release-level evidence stored only in `source_snapshots`. They are not repeated
+  in per-entry observations, so an unchanged canonical entry retains the same observation and provenance identity.
 
 ### GitHub Advisory Database
 
@@ -329,17 +333,19 @@ it must display that release's age and never mix files or source statuses from t
 |---|---|---|
 | `vulnerabilities` | `cve_id`, `cve_year`, `cve_bucket`, `record_state`, `published_at?`, `published_observation_id?`, `modified_at?`, `modified_observation_id?`, `description?`, `description_observation_id?`, `severity?`, `cvss_score?`, `cvss_vector?`, `cvss_version?`, `cvss_observation_id?`, `kev_status`, `in_kev?`, `kev_observation_id?`, `kev_date_added?`, `kev_due_date?`, `kev_ransomware_use?`, `ssvc_exploitation?`, `ssvc_automatable?`, `ssvc_technical_impact?`, `ssvc_observation_id?`, `package_count?`, `package_count_derivation_id?`, `software_count?`, `software_count_derivation_id?`, `source_count`, `source_count_derivation_id`, `last_observed_at`, `selection_derivation_id`, `rights_policy_version`, `schema_version` | `vulnerabilities/year=YYYY/bucket=NN/`; sort `cve_id` |
 | `descriptions` | `observation_id`, `cve_id`, `lang`, `description`, `provider_org_id`, `provider_short_name?`, `source_published_at?`, `source_modified_at?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | CVE year/bucket; sort `cve_id, lang, observation_id` |
+| `cve_metadata_observations` | `observation_id`, `cve_id`, `source_id`, `record_state`, `published_at?`, `modified_at?`, `source_identifier?`, `provider_org_id?`, `provider_short_name?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | CVE year/bucket; sort `cve_id, source_id, observation_id`; NVD is active in P4 and the same table accepts exact CVE Program metadata lineage in P4a |
 | `cvss_observations` | `observation_id`, `cve_id`, `source_id`, `metric_author`, `metric_type?`, `cvss_version`, `vector`, `base_score`, `base_severity`, `source_modified_at?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | CVE year/bucket; sort `cve_id, cvss_version, source_id, observation_id` |
 | `weakness_observations` | `observation_id`, `cve_id`, `cwe_id`, `source_id`, `metric_author?`, `source_modified_at?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | CVE year/bucket; sort `cve_id, cwe_id, source_id` |
 | `references` | `observation_id`, `cve_id`, `source_id`, `url`, `tags`, `source_modified_at?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | CVE year/bucket; sort `cve_id, url, source_id` |
-| `affected_software` | `observation_id`, `cve_id`, `configuration_id`, `node_id`, `parent_node_id?`, `operator`, `negate`, `vulnerable`, `match_criteria_id?`, `vendor`, `product`, `cpe_uri`, `version?`, `version_start_including?`, `version_start_excluding?`, `version_end_including?`, `version_end_excluding?`, `source_id`, `source_modified_at?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | CVE year/bucket; sort `cve_id, configuration_id, node_id, cpe_uri, observation_id` |
+| `configuration_node_observations` | `observation_id`, `cve_id`, `configuration_id`, `node_id`, `parent_node_id?`, `configuration_index`, `node_index?`, `node_kind`, `node_depth`, `child_order`, `operator`, `negate`, `source_modified_at?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | CVE year/bucket; every root/internal/empty node; sort `cve_id, configuration_index, node_depth, child_order, node_id, observation_id` |
+| `affected_software` | `observation_id`, `cve_id`, `configuration_id`, `node_id`, `vulnerable`, `match_criteria_id?`, `vendor`, `product`, `cpe_uri`, `version?`, `version_start_including?`, `version_start_excluding?`, `version_end_including?`, `version_end_excluding?`, `source_id`, `source_modified_at?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | CVE year/bucket; sort `cve_id, configuration_id, node_id, cpe_uri, observation_id` |
 | `ghsa_advisories` | `observation_id`, `ghsa_id`, `published_at?`, `modified_at?`, `withdrawn_at?`, `summary?`, `details?`, `qualitative_severity?`, `references`, `credits`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | `ghsa/bucket=HH/`; sort `ghsa_id` |
 | `ghsa_cve_aliases` | `observation_id`, `ghsa_id`, `alias_index`, `cve_id`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | `ghsa/bucket=HH/`; sort `ghsa_id, alias_index, cve_id` |
 | `ghsa_affected_packages` | `observation_id`, `ghsa_id`, `affected_index`, `ecosystem`, `ecosystem_original`, `package_name`, `package_url?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | `ghsa/bucket=HH/`; sort `ghsa_id, affected_index` |
 | `ghsa_package_ranges` | `observation_id`, `ghsa_id`, `affected_index`, `range_index`, `range_type`, `range_repo?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | `ghsa/bucket=HH/`; sort `ghsa_id, affected_index, range_index` |
 | `ghsa_range_events` | `observation_id`, `ghsa_id`, `affected_index`, `range_index`, `event_index`, `event_type`, `event_value`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | `ghsa/bucket=HH/`; sort `ghsa_id, affected_index, range_index, event_index` |
 | `ghsa_explicit_versions` | `observation_id`, `ghsa_id`, `affected_index`, `version_index`, `version`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | `ghsa/bucket=HH/`; sort `ghsa_id, affected_index, version_index` |
-| `kev_observations` | `observation_id`, `cve_id`, `catalog_version`, `catalog_released_at`, `vendor_project`, `product`, `vulnerability_name`, `date_added`, `short_description`, `required_action`, `due_date`, `known_ransomware_campaign_use`, `notes?`, `cwe_ids`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | `kev/current/`; sort `date_added DESC, cve_id` |
+| `kev_observations` | `observation_id`, `cve_id`, `vendor_project`, `product`, `vulnerability_name`, `date_added`, `short_description`, `required_action`, `due_date`, `known_ransomware_campaign_use`, `notes?`, `cwe_ids`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | `kev/current/`; sort `date_added DESC, cve_id`; catalogue version/release remain in `source_snapshots` |
 | `ssvc_observations` | `observation_id`, `cve_id`, `exploitation`, `automatable`, `technical_impact`, `decision_at?`, `provider_org_id`, `provider_short_name`, `source_modified_at?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | CVE year/bucket; sort `cve_id, source_modified_at, observation_id` |
 | `cwe_catalog` | `observation_id`, `cwe_id`, `name`, `entry_type`, `abstraction?`, `status`, `description`, `extended_description?`, `relationships`, `applicable_platforms`, `consequences`, `detection_methods`, `mitigations`, `notes`, `external_references`, `content_history`, `cwe_version`, `provenance_id`, `rights_policy_version`, `schema_version` | `cwe/bucket=NN/`; sort numeric `cwe_id` |
 | `provenance` | provenance tuple defined above plus `required_notice_ids` | `provenance/source=SOURCE/`; sort `source_record_id, provenance_id` |

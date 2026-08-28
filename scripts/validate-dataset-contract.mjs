@@ -16,6 +16,10 @@ const REVIEWED_VERSION_BASELINES = Object.freeze({
     content_contract_sha256: "8af4d8a738b7a763599d4958b6ce347b41881a310dccc1223a296bfbe76c4047",
     source_policy_sha256: "aac832b0c189106901312998074bd4390d3e7c05d3d65eb72297fb5e0677a538",
   }),
+  "2:2.0.0": Object.freeze({
+    content_contract_sha256: "7e2d92c5acfcc34d83694778380fe5bab1ce8dff730cfc837192233ed209d0db",
+    source_policy_sha256: "dd35dd6b6cb7a3ad46e65689a6ad756aa2235c84fcd9cde040577522dbeb60a5",
+  }),
 });
 const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
@@ -148,11 +152,13 @@ const expectedFieldType = (contract, table, field) => {
   return matches[0] ?? contract.default_field_type;
 };
 const expectedFields = (contract, table) => contract.tables[table].map((name) => ({ name, type: expectedFieldType(contract, table, name), nullable: contract.nullable_fields[table].includes(name) }));
+const sourceBindings = (binding) => Array.isArray(binding) ? binding : binding ? [binding] : [];
+const sourcePaths = (value) => Array.isArray(value) ? value : [value];
 const expectedOutputLedger = (contract, policy) => {
   const policyById = new Map(policy.sources.map((source) => [source.id, source]));
   const sourceIdsForTable = (table, stack = new Set()) => {
-    const direct = contract.source_field_bindings[table]?.source_id;
-    if (direct) return [direct];
+    const direct = sourceBindings(contract.source_field_bindings[table]).map((binding) => binding.source_id);
+    if (direct.length > 0) return sortedUnique(direct);
     if (stack.has(table)) return [];
     const next = new Set(stack).add(table);
     const dependencies = contract.table_derivation_dependencies[table] ?? [];
@@ -162,11 +168,13 @@ const expectedOutputLedger = (contract, policy) => {
   const fieldLineage = [];
   const derivations = [];
   for (const [table, fields] of Object.entries(contract.tables)) {
-    const binding = contract.source_field_bindings[table];
-    const boundFields = Object.keys(binding?.fields ?? {});
-    if (binding) {
+    const bindings = sourceBindings(contract.source_field_bindings[table]);
+    const boundFields = sortedUnique(bindings.flatMap((binding) => Object.keys(binding.fields ?? {})));
+    for (const binding of bindings) {
       const noticeIds = sortedUnique(policyById.get(binding.source_id).required_notice_ids);
-      for (const [field, sourceField] of Object.entries(binding.fields)) fieldLineage.push({ table, field, source_id: binding.source_id, source_field: sourceField, transformation_id: "source_normalize_v1", notice_ids: noticeIds, pointer_semantics: "source_value", provenance_required: true });
+      for (const [field, sourceField] of Object.entries(binding.fields)) {
+        for (const path of sourcePaths(sourceField)) fieldLineage.push({ table, field, source_id: binding.source_id, source_field: path, transformation_id: "source_normalize_v1", notice_ids: noticeIds, pointer_semantics: "source_value", provenance_required: true });
+      }
     }
     for (const field of fields.filter((candidate) => !boundFields.includes(candidate))) {
       const output = `${table}.${field}`;
@@ -194,7 +202,7 @@ const expectedOutputLedger = (contract, policy) => {
         ruleId = "stable_observation_id_v1";
         transformationId = "sha256_identity_v1";
         pointerSemantics = "observation_identity";
-        inputFields = boundFields.map((name) => `${table}.${name}`);
+        inputFields = contract.derivation_input_overrides[output] ?? boundFields.map((name) => `${table}.${name}`);
       } else if (field === "provenance_id") {
         ruleId = "provenance_pointer_v1";
         transformationId = "foreign_key_pointer_v1";
@@ -213,7 +221,7 @@ const expectedOutputLedger = (contract, policy) => {
         transformationId = "source_identity_v1";
         pointerSemantics = "source_identity";
         inputFields = [];
-      } else if (table === "affected_software" && ["configuration_id", "node_id", "parent_node_id"].includes(field)) {
+      } else if (["affected_software", "configuration_node_observations"].includes(table) && ["configuration_id", "node_id", "parent_node_id"].includes(field)) {
         ruleId = "nvd_source_path_identity_v1";
         transformationId = "source_path_index_v1";
       }
@@ -251,7 +259,7 @@ const validateSourcePolicy = (policy, schema, contract) => {
   const cve = byId.get("patch8_cvelist_v5");
   const cveFields = ["dataVersion", "cveMetadata.cveId", "cveMetadata.state", "cveMetadata.datePublished", "cveMetadata.dateUpdated", "cveMetadata.assignerOrgId", "cveMetadata.assignerShortName", "containers.cna.providerMetadata.orgId", "containers.cna.providerMetadata.shortName", "containers.cna.providerMetadata.dateUpdated", "containers.cna.descriptions[].lang", "containers.cna.descriptions[].value"];
   if (!setEquals(cve?.allowed_fields ?? [], cveFields) || cve?.repository !== "https://github.com/CVEProject/cvelistV5" || cve?.immutable_revision_required !== true || !cve?.official_terms_urls?.includes("https://www.cve.org/Legal/TermsOfUse") || !cve?.official_terms_urls?.includes("https://www.cve.org/Downloads")) addError(errors, "CVELIST_RULE_INVALID", "/sources", "cvelistV5 rule must pin official terms, repository, immutable revision, and exact v1 fields");
-  const nvdRequired = ["cve.configurations[].operator", "cve.configurations[].negate", "cve.configurations[].nodes[].operator", "cve.configurations[].nodes[].negate", "cve.configurations[].nodes[].cpeMatch[].vulnerable", "cve.configurations[].nodes[].cpeMatch[].criteria", "cve.configurations[].nodes[].cpeMatch[].matchCriteriaId", "cve.configurations[].nodes[].cpeMatch[].versionStartIncluding", "cve.configurations[].nodes[].cpeMatch[].versionStartExcluding", "cve.configurations[].nodes[].cpeMatch[].versionEndIncluding", "cve.configurations[].nodes[].cpeMatch[].versionEndExcluding"];
+  const nvdRequired = ["cve.vulnStatus", "cve.metrics.cvssMetricV2[].baseSeverity", "cve.configurations[].operator", "cve.configurations[].negate", "cve.configurations[].nodes[].operator", "cve.configurations[].nodes[].negate", "cve.configurations[].nodes[].cpeMatch[].vulnerable", "cve.configurations[].nodes[].cpeMatch[].criteria", "cve.configurations[].nodes[].cpeMatch[].matchCriteriaId", "cve.configurations[].nodes[].cpeMatch[].versionStartIncluding", "cve.configurations[].nodes[].cpeMatch[].versionStartExcluding", "cve.configurations[].nodes[].cpeMatch[].versionEndIncluding", "cve.configurations[].nodes[].cpeMatch[].versionEndExcluding"];
   const nvdDerivedOnly = ["configuration_id", "node_id", "parent_node_id"];
   if (!nvdRequired.every((field) => byId.get("patch8_nvd")?.allowed_fields?.includes(field)) || nvdDerivedOnly.some((field) => byId.get("patch8_nvd")?.allowed_fields?.some((allowed) => allowed.endsWith(field)))) addError(errors, "NVD_STRUCTURE_RULE_INCOMPLETE", "/sources", "NVD raw Boolean-tree/version paths must be exact and Link42 path identities must remain derived");
   if (errors.length === 0) errors.push(...validateReviewedVersionBaseline(contract, policy));
@@ -279,11 +287,15 @@ const assertContentContract = (contract, policy) => {
     const [table, field] = output.split(".");
     if (!contract.tables[table]?.includes(field) || typeof type !== "string") failures.push(`invalid type override ${output}`);
   }
-  for (const [table, binding] of Object.entries(contract.source_field_bindings)) {
-    const source = policyById.get(binding.source_id);
-    if (!contract.tables[table] || !source) failures.push(`invalid source binding ${table}`);
-    for (const [field, sourceField] of Object.entries(binding.fields)) {
-      if (!contract.tables[table]?.includes(field) || !fieldAllowed(sourceField, source?.allowed_fields ?? [])) failures.push(`unauthorized source binding ${table}.${field}`);
+  for (const [table, configuredBindings] of Object.entries(contract.source_field_bindings)) {
+    const bindings = sourceBindings(configuredBindings);
+    if (bindings.length === 0) failures.push(`invalid empty source binding ${table}`);
+    for (const binding of bindings) {
+      const source = policyById.get(binding.source_id);
+      if (!contract.tables[table] || !source) failures.push(`invalid source binding ${table}`);
+      for (const [field, configuredPaths] of Object.entries(binding.fields)) {
+        for (const sourceField of sourcePaths(configuredPaths)) if (!contract.tables[table]?.includes(field) || !fieldAllowed(sourceField, source?.allowed_fields ?? [])) failures.push(`unauthorized source binding ${table}.${field}`);
+      }
     }
   }
   const validateInput = (input) => {
@@ -330,11 +342,11 @@ const validateManifest = (manifest, reader, schema, policy, contract, policySha)
   const clockTimes = clockKeys.map((key) => Date.parse(manifest.clocks?.[key]));
   if (clockTimes.some(Number.isNaN) || clockTimes.some((time, index) => index > 0 && time < clockTimes[index - 1])) add("CLOCK_INVALID", "/clocks", "source-modified, checked, built, published, and stale clocks must be ordered");
   if (bounds.observed_repository_revisions > bounds.max_repository_revisions || bounds.observed_retained_bytes > bounds.max_retained_bytes) add("REPOSITORY_GROWTH_EXCEEDED", "/release_bounds", "repository revision or retained-byte ceiling exceeded");
-  for (const [values, code, path] of [[schemas.map((item) => item.id), "TABLE_DUPLICATE", "/table_schemas"], [routes.map((item) => item.schema_id), "ROUTING_DUPLICATE", "/routing"], [artifacts.map((item) => item.id), "ARTIFACT_DUPLICATE", "/artifacts"], [artifacts.map((item) => item.relative_path), "PATH_DUPLICATE", "/artifacts"], [snapshots.map((item) => item.source_id), "SOURCE_DUPLICATE", "/source_snapshots"], [lineages.map((item) => `${item.table}.${item.field}`), "FIELD_LINEAGE_DUPLICATE", "/field_lineage"], [derivations.map((item) => `${item.output_table}.${item.output_field}`), "DERIVATION_DUPLICATE", "/derivations"]]) {
+  for (const [values, code, path] of [[schemas.map((item) => item.id), "TABLE_DUPLICATE", "/table_schemas"], [routes.map((item) => item.schema_id), "ROUTING_DUPLICATE", "/routing"], [artifacts.map((item) => item.id), "ARTIFACT_DUPLICATE", "/artifacts"], [artifacts.map((item) => item.relative_path), "PATH_DUPLICATE", "/artifacts"], [snapshots.map((item) => item.source_id), "SOURCE_DUPLICATE", "/source_snapshots"], [lineages.map((item) => `${item.table}.${item.field}.${item.source_id}.${item.source_field}`), "FIELD_LINEAGE_DUPLICATE", "/field_lineage"], [derivations.map((item) => `${item.output_table}.${item.output_field}`), "DERIVATION_DUPLICATE", "/derivations"]]) {
     for (const duplicate of duplicates(values)) add(code, path, `duplicate ${duplicate}`);
   }
   const expectedLedger = expectedOutputLedger(contract, policy);
-  const sortLineage = (entries) => [...entries].sort((left, right) => `${left.table}.${left.field}`.localeCompare(`${right.table}.${right.field}`));
+  const sortLineage = (entries) => [...entries].sort((left, right) => `${left.table}.${left.field}.${left.source_id}.${left.source_field}`.localeCompare(`${right.table}.${right.field}.${right.source_id}.${right.source_field}`));
   const sortDerivations = (entries) => [...entries].sort((left, right) => `${left.output_table}.${left.output_field}`.localeCompare(`${right.output_table}.${right.output_field}`));
   if (!deepEqual(sortLineage(lineages), sortLineage(expectedLedger.fieldLineage)) || !deepEqual(sortDerivations(derivations), sortDerivations(expectedLedger.derivations))) add("OUTPUT_LEDGER_INVALID", "/field_lineage", "field lineage and derivations must exactly match the reviewed source/input/rule/notice/pointer ledger");
   const requiredTableIds = Object.keys(contract.tables);
@@ -388,16 +400,20 @@ const validateManifest = (manifest, reader, schema, policy, contract, policySha)
   const latestSnapshotModifiedAt = snapshots.map((snapshot) => snapshot.source_modified_at).sort().at(-1);
   const latestSnapshotCheckedAt = snapshots.map((snapshot) => snapshot.checked_at).sort().at(-1);
   if (manifest.clocks?.latest_source_modified_at !== latestSnapshotModifiedAt || manifest.clocks?.latest_source_checked_at !== latestSnapshotCheckedAt) add("CLOCK_INVALID", "/clocks", "manifest source clocks must equal the latest declared source snapshot clocks");
-  const lineageByOutput = new Map(lineages.map((entry) => [`${entry.table}.${entry.field}`, entry]));
+  const lineagesByOutput = new Map();
+  for (const entry of lineages) {
+    const key = `${entry.table}.${entry.field}`;
+    lineagesByOutput.set(key, [...(lineagesByOutput.get(key) ?? []), entry]);
+  }
   const derivationByOutput = new Map(derivations.map((entry) => [`${entry.output_table}.${entry.output_field}`, entry]));
   for (const table of schemas) {
     for (const field of arrayObjects(table.fields)) {
       const key = `${table.id}.${field.name}`;
-      const lineage = lineageByOutput.get(key);
+      const outputLineages = lineagesByOutput.get(key) ?? [];
       const derivation = derivationByOutput.get(key);
-      if (Boolean(lineage) === Boolean(derivation)) add("FIELD_PROVENANCE_INVALID", "/field_lineage", `${key} must have exactly one source lineage or derivation`);
+      if ((outputLineages.length > 0) === Boolean(derivation)) add("FIELD_PROVENANCE_INVALID", "/field_lineage", `${key} must have source lineage alternatives or one derivation, never both`);
       if (forbiddenTokens.some((token) => key.toLowerCase().includes(token))) add("BLOCKED_FIELD", "/table_schemas", `${key} is blocked by v1`);
-      if (lineage) {
+      for (const lineage of outputLineages) {
         const source = policySources.get(lineage.source_id);
         if (!source || source.enabled !== true || !fieldAllowed(lineage.source_field, source.allowed_fields ?? [])) add("FIELD_NOT_ALLOWED", "/field_lineage", `${key} is not authorized by ${lineage.source_id}`);
       }
@@ -480,7 +496,8 @@ const createFixtureManifest = (contract, policy, policySha) => {
     if (table.startsWith("cwe")) return ["patch8_mitre_cwe", "cwe_id"];
     if (table.startsWith("kev")) return ["patch8_cisa_kev", "vulnerabilities.*"];
     if (table.startsWith("ssvc")) return ["patch8_cisa_vulnrichment", "containers.adp[provider=CISA-ADP].metrics"];
-    if (["cvss_observations", "weakness_observations", "references", "affected_software", "software_product_vulnerabilities"].includes(table)) return ["patch8_nvd", "cve.id"];
+    if (["cvss_observations", "weakness_observations", "references", "configuration_node_observations", "affected_software", "software_product_vulnerabilities"].includes(table)) return ["patch8_nvd", "cve.id"];
+    if (table === "cve_metadata_observations") return ["patch8_nvd", "cve.id"];
     return ["patch8_cvelist_v5", "cveMetadata.cveId"];
   };
   const schemas = tableIds.map((id) => ({ id, version: 1, schema_sha256: "", primary_key: contract.table_keys[id].primary_key, sort_keys: contract.table_keys[id].sort_keys, fields: expectedFields(contract, id) }));
