@@ -7,10 +7,11 @@ the historical Worker/D1 service with a static SvelteKit application intended fo
 
 | Area | State | Evidence |
 |---|---|---|
-| Legacy interface restoration | **live-verified** | The historical Patch8 layout, dashboard, routes, components, brand assets, tokens, responsive behaviour, and visible copy are locked by tests and deployed in [commit `1b932e3`](https://github.com/link42-au/patch8/commit/1b932e34). |
+| Legacy interface restoration | **live-verified** | The historical Patch8 layout, dashboard, routes, components, brand assets, tokens, responsive behaviour, and current visible copy are locked by tests and deployed in [commit `1b932e3`](https://github.com/link42-au/patch8/commit/1b932e34). Future data work may make only minimal semantic copy/meta/disabled-control changes required for honest unavailable/partial/stale states, without route, layout, or visual redesign. |
 | Static Pages shell | **live-verified** | [Hosted run 33160759689](https://github.com/link42-au/patch8/actions/runs/33160759689) verified the restored legacy interface at [`link42-au.github.io/patch8/`](https://link42-au.github.io/patch8/). This status does not claim data-backed capability. |
 | DuckDB-Wasm data client | **in progress** | Synthetic query-routed Parquet, deterministic fixtures, prepared SQL, corrupt-current fallback, local Chromium/Firefox/Playwright WebKit, and immutable public-HF Chromium range proofs pass without changing the legacy UI. Actual desktop/mobile Safari, cache, and memory evidence remain incomplete; see [`docs/p2-duckdb-proof.md`](docs/p2-duckdb-proof.md). |
-| Patch8 dataset builder | **planned; not implemented** | An app-owned Python pipeline will normalize approved NVD, CVE Program, CISA KEV, and CISA Vulnrichment fields. |
+| v1 data-content contract | **source-complete; not implemented** | [`docs/data-scope-v1.md`](docs/data-scope-v1.md) defines the authoritative sources, fields, provenance, conflicts, routing, freshness, retention, legacy coverage, and acceptance gates. |
+| Patch8 dataset builder | **planned; not implemented** | An app-owned Python pipeline will normalize approved CVE Program, NVD, CISA KEV, CVE-linked GitHub Advisory Database, CISA Vulnrichment, and MITRE CWE fields. |
 | Public dataset | **P2 canary live-verified; release blocked** | The public, ungated Hugging Face dataset [`link42-au/patch`](https://huggingface.co/datasets/link42-au/patch) serves the synthetic P2 canary anonymously at manifest revision `aa4e13c4564924c12a16720d8bebe57208dfccdd`. It does not yet contain a verified Patch8 vulnerability release; the local full build and scoped publisher write/readback remain pending. |
 | FIRST EPSS | **disabled** | Direct display awaits a version-2 source-policy decision; dataset republication remains prohibited. |
 | OSV | **disabled for first release** | It awaits an enforceable home-database licence registry. |
@@ -28,8 +29,9 @@ package, software, report, and feed data cannot operate without that backend and
 - Static SvelteKit and TypeScript, built with `@sveltejs/adapter-static`.
 - Public GitHub Pages and public GitHub Actions.
 - An app-owned Python ingestion/build pipeline generates bounded, query-routed Parquet from rights-approved official
-  NVD, CISA KEV, and CISA Vulnrichment fields. CVE Program `cvelistV5` remains fail-closed until P3 adds its explicit
-  machine-readable source rule.
+  CVE Program, NVD, CISA KEV, CVE-linked GitHub Advisory Database, CISA Vulnrichment, and MITRE CWE fields. CVE Program
+  `cvelistV5` remains fail-closed until P3 adds its explicit machine-readable source rule; descriptions stay unavailable
+  before that gate passes.
 - The first full build runs locally. Public Actions later run bounded source-change updates without accumulating one
   permanent Parquet file per day.
 - Public best-effort dataset storage at `link42-au/patch`, activated through an immutable revision manifest with
@@ -42,8 +44,8 @@ package, software, report, and feed data cannot operate without that backend and
 - Every output must pass the source-rights two-key gate: an enabled public-dataset source rule and an allowed field rule.
 - Small copied schemas, synthetic fixtures, rights decisions, file locks, and attribution remain reviewable in Git.
 
-See [`PLAN.md`](PLAN.md) for the feature sequence, release protocol, publication blocker, acceptance tests, and rollback
-design.
+See [`docs/data-scope-v1.md`](docs/data-scope-v1.md) for the authoritative v1 data contract and [`PLAN.md`](PLAN.md) for
+the feature sequence, release protocol, publication blocker, acceptance tests, and rollback design.
 
 ## Commands
 
