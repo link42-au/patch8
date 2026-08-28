@@ -409,7 +409,9 @@ source identifiers and broad field groups. P3 replaced them with the closed
 use those machine files and their exact `patch8_*` source identities, repositories, allowed fields, blocked artifacts,
 required notices, publication modes, immutable-revision requirements, and output derivation ledger; none may be widened
 by a producer manifest. NVD configuration/node identifiers are Link42 derivations from pinned source paths, not raw NVD
-fields. No direct EPSS mode is approved.
+fields. The complete semantic policy and data-content contract are independently sealed to their declared version pair.
+Any approved material policy or contract drift must increment both versions and add a new reviewed baseline; an existing
+version baseline is never changed in place. No direct EPSS mode is approved.
 
 ```yaml
 policy_version: 1

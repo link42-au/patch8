@@ -38,6 +38,13 @@
       "expected_error_codes": ["TABLE_SCHEMA_FINGERPRINT_INVALID", "TABLE_SCHEMA_INVALID"]
     },
     {
+      "name": "reject a coordinated type-contract and recomputed-schema change at contract version 1",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "contract_mutations": [{ "operation": "set", "path": "/field_type_overrides/kev_observations.notes", "value": "INT32" }],
+      "mutations": [],
+      "expected_error_codes": ["VERSION_TRANSITION_REQUIRED"]
+    },
+    {
       "name": "reject a self-declared primary key",
       "reader": { "manifest_version": 1, "schema_version": 1 },
       "mutations": [{ "operation": "set", "path": "/table_schemas/0/primary_key", "value": ["cve_year"] }],

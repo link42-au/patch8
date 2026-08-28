@@ -95,6 +95,22 @@
       "name": "reject broadening GHSA publication mode",
       "mutations": [{ "operation": "set", "path": "/sources/4/publication_mode", "value": "raw_and_normalized" }],
       "expected_error_codes": ["SOURCE_POLICY_WIDENED"]
+    },
+    {
+      "name": "reject a coordinated GHSA repository and locator change with an updated source hash at policy 1.0.0",
+      "mutations": [
+        { "operation": "set", "path": "/sources/4/repository", "value": "https://example.invalid/coordinated" },
+        { "operation": "set", "path": "/sources/4/source_locator", "value": "https://example.invalid/coordinated" }
+      ],
+      "contract_mutations": [{ "operation": "set", "path": "/source_requirements/patch8_github_advisory_database/source_locator", "value": "https://example.invalid/coordinated" }],
+      "synchronize_policy_source_sha256": ["patch8_github_advisory_database"],
+      "expected_error_codes": ["VERSION_TRANSITION_REQUIRED"]
+    },
+    {
+      "name": "reject a coordinated GHSA allowed-field change with an updated source hash at policy 1.0.0",
+      "mutations": [{ "operation": "set", "path": "/sources/4/allowed_fields/19", "value": "coordinated_normalized_field" }],
+      "synchronize_policy_source_sha256": ["patch8_github_advisory_database"],
+      "expected_error_codes": ["VERSION_TRANSITION_REQUIRED"]
     }
   ]
 }

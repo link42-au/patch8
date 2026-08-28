@@ -11,6 +11,12 @@ const FIXTURES_URL = new URL("../contracts/fixtures/dataset-manifest.cases.json"
 const POLICY_FIXTURES_URL = new URL("../contracts/fixtures/source-policy.cases.json", import.meta.url);
 
 const REVISION_PATTERN = /^[0-9a-f]{40}$/;
+const REVIEWED_VERSION_BASELINES = Object.freeze({
+  "1:1.0.0": Object.freeze({
+    content_contract_sha256: "8af4d8a738b7a763599d4958b6ce347b41881a310dccc1223a296bfbe76c4047",
+    source_policy_sha256: "aac832b0c189106901312998074bd4390d3e7c05d3d65eb72297fb5e0677a538",
+  }),
+});
 const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 const pointerPart = (value) => String(value).replaceAll("~", "~0").replaceAll("/", "~1");
@@ -126,6 +132,14 @@ const addError = (errors, code, path, message) => errors.push({ code, path, mess
 const arrayObjects = (value) => Array.isArray(value) ? value.filter(isObject) : [];
 const setEquals = (left, right) => deepEqual(sortedUnique(left), sortedUnique(right));
 const fieldAllowed = (field, patterns) => patterns.some((pattern) => pattern.endsWith("*") ? field.startsWith(pattern.slice(0, -1)) : field === pattern);
+const semanticSha256 = (value) => createHash("sha256").update(stableStringify(value)).digest("hex");
+const validateReviewedVersionBaseline = (contract, policy) => {
+  const versionKey = `${contract.contract_version}:${policy.policy_version}`;
+  const baseline = REVIEWED_VERSION_BASELINES[versionKey];
+  if (!baseline || contract.rights_policy_version !== policy.policy_version) return [{ code: "VERSION_TRANSITION_REQUIRED", path: "/contract_version", message: "contract and policy versions must select one reviewed immutable baseline" }];
+  if (semanticSha256(contract) !== baseline.content_contract_sha256 || semanticSha256(policy) !== baseline.source_policy_sha256) return [{ code: "VERSION_TRANSITION_REQUIRED", path: "/contract_version", message: "same-version contract or policy drift differs from the reviewed immutable baseline" }];
+  return [];
+};
 const expectedFieldType = (contract, table, field) => {
   const override = contract.field_type_overrides?.[`${table}.${field}`];
   if (override) return override;
@@ -240,6 +254,7 @@ const validateSourcePolicy = (policy, schema, contract) => {
   const nvdRequired = ["cve.configurations[].operator", "cve.configurations[].negate", "cve.configurations[].nodes[].operator", "cve.configurations[].nodes[].negate", "cve.configurations[].nodes[].cpeMatch[].vulnerable", "cve.configurations[].nodes[].cpeMatch[].criteria", "cve.configurations[].nodes[].cpeMatch[].matchCriteriaId", "cve.configurations[].nodes[].cpeMatch[].versionStartIncluding", "cve.configurations[].nodes[].cpeMatch[].versionStartExcluding", "cve.configurations[].nodes[].cpeMatch[].versionEndIncluding", "cve.configurations[].nodes[].cpeMatch[].versionEndExcluding"];
   const nvdDerivedOnly = ["configuration_id", "node_id", "parent_node_id"];
   if (!nvdRequired.every((field) => byId.get("patch8_nvd")?.allowed_fields?.includes(field)) || nvdDerivedOnly.some((field) => byId.get("patch8_nvd")?.allowed_fields?.some((allowed) => allowed.endsWith(field)))) addError(errors, "NVD_STRUCTURE_RULE_INCOMPLETE", "/sources", "NVD raw Boolean-tree/version paths must be exact and Link42 path identities must remain derived");
+  if (errors.length === 0) errors.push(...validateReviewedVersionBaseline(contract, policy));
   return errors;
 };
 
@@ -420,6 +435,7 @@ const validateManifest = (manifest, reader, schema, policy, contract, policySha)
     if (["supported", "partial"].includes(capability.state) && (!Number.isInteger(numerator) || !Number.isInteger(denominator) || denominator <= 0 || numerator > denominator || (capability.state === "supported" && numerator !== denominator) || (capability.state === "partial" && numerator >= denominator))) add("CAPABILITY_COVERAGE_INVALID", "/coverage/capabilities", `${capability.capability_id} numerator/denominator contradict its state`);
     for (const sourceId of capability.source_ids) if (!contract.required_source_ids.includes(sourceId)) add("SOURCE_INVALID", "/coverage/capabilities", `${capability.capability_id} references a forbidden source`);
   }
+  if (errors.length === 0) errors.push(...validateReviewedVersionBaseline(contract, policy));
   return errors;
 };
 
@@ -523,8 +539,14 @@ const main = async () => {
   const policyMismatches = [];
   for (const fixture of policyFixtures.cases) {
     const candidate = clone(policy);
+    const candidateContract = clone(contract);
     for (const mutation of fixture.mutations ?? []) applyMutation(candidate, mutation);
-    const actual = sortedUnique(validateSourcePolicy(candidate, policySchema, contract).map((error) => error.code));
+    for (const mutation of fixture.contract_mutations ?? []) applyMutation(candidateContract, mutation);
+    for (const sourceId of fixture.synchronize_policy_source_sha256 ?? []) {
+      const source = candidate.sources.find((entry) => entry.id === sourceId);
+      candidateContract.source_requirements[sourceId].policy_source_sha256 = semanticSha256(source);
+    }
+    const actual = sortedUnique(validateSourcePolicy(candidate, policySchema, candidateContract).map((error) => error.code));
     const expected = sortedUnique(fixture.expected_error_codes);
     if (!deepEqual(actual, expected)) policyMismatches.push({ name: fixture.name, expected, actual });
   }
@@ -537,9 +559,11 @@ const main = async () => {
   const base = createFixtureManifest(contract, policy, policySha);
   const mismatches = [];
   for (const fixture of fixtures.cases) {
-    const manifest = clone(base);
+    const candidateContract = clone(contract);
+    for (const mutation of fixture.contract_mutations ?? []) applyMutation(candidateContract, mutation);
+    const manifest = fixture.contract_mutations?.length ? createFixtureManifest(candidateContract, policy, policySha) : clone(base);
     for (const mutation of fixture.mutations ?? []) applyMutation(manifest, mutation);
-    const actual = sortedUnique(validateManifest(manifest, fixture.reader, manifestSchema, policy, contract, policySha).map((error) => error.code));
+    const actual = sortedUnique(validateManifest(manifest, fixture.reader, manifestSchema, policy, candidateContract, policySha).map((error) => error.code));
     const expected = sortedUnique(fixture.expected_error_codes);
     if (!deepEqual(actual, expected)) mismatches.push({ name: fixture.name, expected, actual });
   }

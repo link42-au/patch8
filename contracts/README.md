@@ -13,7 +13,13 @@ Status: **P3 source-complete; no ingestion or production dataset implemented**.
   snapshots, field lineage, derivations, and explicit source/capability coverage.
 - [`fixtures/source-policy.cases.json`](fixtures/source-policy.cases.json) and
   [`fixtures/dataset-manifest.cases.json`](fixtures/dataset-manifest.cases.json) exercise valid contracts and their
-  fail-closed boundaries (19 source-policy cases and 56 manifest cases).
+  fail-closed boundaries (21 source-policy cases and 57 manifest cases).
+
+The validator independently seals the complete semantic content-contract and source-policy digests to their declared
+`contract_version:policy_version` pair. An approved material change must increment both versions, refresh affected
+per-source fingerprints, and add a new reviewed baseline entry; an existing baseline entry is immutable and must never
+be replaced in place. Repository, field, schema, key, lineage, and policy changes therefore cannot reuse version `1:1.0.0`
+by merely updating hashes or regenerating manifest schemas.
 
 Validate the policy, schemas, and fixtures with:
 
