@@ -7,10 +7,11 @@ the historical Worker/D1 service with a static SvelteKit application intended fo
 
 | Area | State | Evidence |
 |---|---|---|
-| Legacy interface restoration | **source-complete** | The historical Patch8 layout, dashboard, routes, components, brand assets, tokens, responsive behaviour, and visible copy are restored in the static app. Tests lock the route and DOM contract. |
-| Static Pages shell | **live-verified** | [Hosted run 33157148459, attempt 2](https://github.com/link42-au/patch8/actions/runs/33157148459/attempts/2) verified the independent Pages shell at [`link42-au.github.io/patch8/`](https://link42-au.github.io/patch8/). A later deployment carries the restored legacy interface; this status does not claim data-backed capability. |
-| Exact CVE lookup | **planned; not implemented** | The approved source is anonymous browser-direct NVD CVE API 2.0. P1 makes no runtime data request. |
-| CISA KEV context | **planned; not implemented** | The approved source is official KEV JSON at an immutable `cisagov/kev-data` revision. No lock or adapter exists yet. |
+| Legacy interface restoration | **live-verified** | The historical Patch8 layout, dashboard, routes, components, brand assets, tokens, responsive behaviour, and visible copy are locked by tests and deployed in [commit `1b932e3`](https://github.com/link42-au/patch8/commit/1b932e34). |
+| Static Pages shell | **live-verified** | [Hosted run 33160759689](https://github.com/link42-au/patch8/actions/runs/33160759689) verified the restored legacy interface at [`link42-au.github.io/patch8/`](https://link42-au.github.io/patch8/). This status does not claim data-backed capability. |
+| DuckDB-Wasm data client | **planned; not implemented** | The first code feature is a synthetic query-routed Parquet browser spike. P1 makes no runtime data request. |
+| Patch8 dataset builder | **planned; not implemented** | An app-owned Python pipeline will normalize approved NVD, CVE Program, CISA KEV, and CISA Vulnrichment fields. |
+| Public dataset | **blocked** | The best-effort public Hugging Face dataset `link42-au/patch8-data` does not exist yet. Local build work can proceed. |
 | FIRST EPSS | **disabled** | Direct display awaits a version-2 source-policy decision; dataset republication remains prohibited. |
 | OSV | **disabled for first release** | It awaits an enforceable home-database licence registry. |
 | AppThreat | **rejected for first release** | Record-level provenance and a supportable browser range-reader did not clear the release gates. |
@@ -22,14 +23,26 @@ The restored routes deliberately show unavailable or empty states where the hist
 removed Worker/D1 API. Login, account, watchlist persistence, feed administration, backfills, and live vulnerability,
 package, software, report, and feed data cannot operate without that backend and are not simulated.
 
-## Architecture boundary
+## Approved architecture
 
 - Static SvelteKit and TypeScript, built with `@sveltejs/adapter-static`.
 - Public GitHub Pages and public GitHub Actions.
-- No application server, Worker, D1, hosted database, ingestion, auth, account, paid/private feature, runtime AI, API
-  gateway, NVD key, Hugging Face write token, or other runtime secret.
-- Future clients remain read-only. Patch8 will not build, mirror, or republish a Link42-owned vulnerability dataset.
+- An app-owned Python ingestion/build pipeline generates bounded, query-routed Parquet from rights-approved official
+  NVD, CISA KEV, and CISA Vulnrichment fields. CVE Program `cvelistV5` remains fail-closed until P3 adds its explicit
+  machine-readable source rule.
+- The first full build runs locally. Public Actions later run bounded source-change updates without accumulating one
+  permanent Parquet file per day.
+- Public best-effort dataset storage at `link42-au/patch8-data`, activated through an immutable revision manifest with
+  a previous-good release. Publication remains blocked until the Hugging Face organization and dataset exist.
+- DuckDB-Wasm queries the pinned Parquet revision directly in the browser. Clients remain read-only.
+- No application server, Worker, D1, hosted query database, auth, account, paid/private feature, runtime AI, API gateway,
+  NVD key, Hugging Face write token in the browser, or other runtime secret.
+- No Link42-owned EPSS dataset, history, durable shared cache, or bulk export.
+- Every output must pass the source-rights two-key gate: an enabled public-dataset source rule and an allowed field rule.
 - Small copied schemas, synthetic fixtures, rights decisions, file locks, and attribution remain reviewable in Git.
+
+See [`PLAN.md`](PLAN.md) for the feature sequence, release protocol, publication blocker, acceptance tests, and rollback
+design.
 
 ## Commands
 
@@ -52,8 +65,8 @@ needs an installed Chromium runtime; the Pages workflow installs it and runs bot
 ## Evidence carried into this repository
 
 - [`contracts/`](contracts/) retains the synthetic F3 manifest schema/fixtures and validator as historical integrity and
-  rollback evidence. Its Hugging Face publication model is superseded for Patch8 point lookup; P2 will adopt the F6
-  split between dynamic API contracts and immutable file locks.
+  rollback evidence. P3 will replace it with the app-owned immutable Parquet release contract after the P2 browser
+  spike establishes practical query and partition budgets.
 - [`docs/licensing/patch8.md`](docs/licensing/patch8.md) and
   [`docs/licensing/source-policy.json`](docs/licensing/source-policy.json) are the copied F2 rights evidence. The JSON is
   the full Link42 v1 registry; Patch8 consumes only entries whose `product` is `patch8`.

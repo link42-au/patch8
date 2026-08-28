@@ -6,10 +6,10 @@ This directory deliberately carries the Link42 F3 manifest schema and synthetic 
 repository. They preserve tested integrity, bounded routing, provenance, compatibility, and rollback invariants without
 creating a shared runtime dependency.
 
-The version-1 schema describes the superseded Link42-owned Hugging Face publication model. Patch8 must not use that
-model for exact-CVE point lookup. The selected first-release design instead requires a dynamic anonymous NVD API
-contract and an immutable official CISA KEV file lock. Those successor contracts belong to P2 after F6; they are not
-silently invented by this repository shell.
+The version-1 schema is historical evidence for an earlier shared Hugging Face publication model; it is not the active
+Patch8 runtime contract. The approved [`PLAN.md`](../PLAN.md) returns to an app-owned Hugging Face Parquet dataset, but
+only after P2 measures a synthetic DuckDB-Wasm browser path and P3 replaces this evidence with a Patch8-specific
+source/field/manifest contract. Do not publish or consume a release under this historical schema.
 
 Validate the copied schema and fixtures with:
 
