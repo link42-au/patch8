@@ -1,4 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Patch8">
-  <rect width="64" height="64" rx="16" fill="#e11d48"/>
-  <path fill="#fff" d="M16 16h19c9 0 15 5 15 13s-6 13-15 13h-7v7H16V16Zm12 10v7h7c2 0 4-1 4-4s-2-3-4-3h-7Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <style>
+      :root {
+        --sl: #243c5a;
+        --accent: #e11d48;
+        --cross: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --sl: #334155;
+          --accent: #fb7185;
+          --cross: #f8fafc;
+        }
+      }
+    </style>
+  </defs>
+  <path d="M 60 16 L 24 27 L 24 62 C 24 84 44 96 60 103 Z" fill="var(--sl)"/>
+  <path d="M 60 16 L 96 27 L 96 62 C 96 84 76 96 60 103 Z" fill="var(--accent)"/>
+  <line x1="42" y1="58" x2="78" y2="58" stroke="var(--cross)" stroke-width="10" stroke-linecap="round"/>
+  <line x1="60" y1="40" x2="60" y2="76" stroke="var(--cross)" stroke-width="10" stroke-linecap="round"/>
 </svg>

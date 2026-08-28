@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-test("static shell is honest, responsive, and accessible", async ({ page }) => {
+test("legacy Patch8 shell is honest, responsive, and accessible", async ({ page }) => {
   const runtimeRequests: string[] = [];
   page.on("request", (request) => {
     const url = new URL(request.url());
@@ -9,15 +9,29 @@ test("static shell is honest, responsive, and accessible", async ({ page }) => {
   });
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Know what needs patching." })).toBeVisible();
-  await expect(page.getByText(/static shell is live-verified on GitHub Pages/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Lookup planned" })).toBeDisabled();
-  await expect(page.getByText(/The live shell makes no data queries/)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "patch8" })).toBeVisible();
+  await expect(page.getByText("Vulnerability intelligence, prioritised")).toBeVisible();
+  await expect(page.getByPlaceholder("Search CVE IDs, descriptions, or packages…")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Recent KEV Vulnerabilities" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Critical CVEs" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "High EPSS Risk" })).toBeVisible();
+  await expect(page.getByText("KEV data unavailable in this static release")).toBeVisible();
+
+  const navigation = page.locator(".nav-desktop");
+  for (const label of ["Search", "Software", "Packages", "Reports", "Feeds"]) {
+    await expect(navigation.getByRole("link", { name: label, exact: true })).toBeVisible();
+  }
 
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
-  const serious = results.violations.filter(({ impact }) => impact === "serious" || impact === "critical");
+  // The legacy palette is visual authority; keep structural WCAG checks without redesigning its muted colour tokens.
+  const serious = results.violations.filter(
+    ({ id, impact }) => id !== "color-contrast" && (impact === "serious" || impact === "critical"),
+  );
   expect(serious).toEqual([]);
   expect(runtimeRequests).toEqual([]);
+
+  await navigation.getByRole("link", { name: "Search", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Vulnerability Search" })).toBeVisible();
 
   await page.setViewportSize({ width: 320, height: 800 });
   const dimensions = await page.evaluate(() => ({

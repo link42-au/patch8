@@ -12,6 +12,9 @@
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
+    "@link42/tokens": "workspace:*",
+    "@link42/ui": "workspace:*",
+    "@patch8/shared": "workspace:*",
     "@sveltejs/kit": "2.70.3",
     "svelte": "5.56.10"
   },

@@ -1,0 +1,127 @@
+/* ── patch8 Brand — Rose Accent ──
+ * Shared tokens (neutral palette, semantic colors, typography, reset)
+ * are imported via @link42/tokens in +layout.svelte.
+ * This file only contains per-app accent overrides.
+ */
+
+[data-theme="light"] {
+  --accent: #e11d48;
+  --accent-hover: #be123c;
+  --accent-bg: #fff1f2;
+  --accent-border: #fecdd3;
+}
+
+[data-theme="dark"] {
+  --accent: #fb7185;
+  --accent-hover: #e11d48;
+  --accent-bg: #2c1519;
+  --accent-border: #9f1239;
+}
+
+/* ── Report Pages ────────────────────────────────────────── */
+
+.rpt-month-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.rpt-month-card {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+  transition: border-color 0.15s;
+}
+
+.rpt-month-card:hover {
+  border-color: var(--accent);
+}
+
+.rpt-severity-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--bg-subtle);
+}
+
+.rpt-severity-bar span {
+  display: block;
+  height: 100%;
+}
+
+.bar-critical {
+  background: var(--red);
+}
+.bar-high {
+  background: var(--amber);
+}
+.bar-medium {
+  background: var(--amber);
+  opacity: 0.5;
+}
+.bar-low {
+  background: var(--green);
+}
+
+.rpt-narrative {
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+  margin-bottom: 32px;
+}
+
+.rpt-narrative p {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-mid);
+  margin-bottom: 12px;
+}
+
+.rpt-narrative p:last-child {
+  margin-bottom: 0;
+}
+
+.rpt-exploited-section {
+  margin-bottom: 32px;
+  padding: 24px;
+  border: 1px solid var(--red-border);
+  border-radius: 10px;
+  background: var(--red-bg);
+}
+
+.rpt-exploited-section h2 {
+  color: var(--red);
+}
+
+.exploited-card {
+  padding: 16px;
+  border: 1px solid var(--red-border);
+  border-radius: 8px;
+  background: var(--bg-card);
+}
+
+.ai-indicator {
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 2px 8px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+@media (max-width: 640px) {
+  .rpt-month-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rpt-narrative {
+    padding: 16px;
+  }
+
+  .rpt-exploited-section {
+    padding: 16px;
+  }
+}

@@ -1,49 +1,72 @@
 <script lang="ts">
-  import { base } from "$app/paths";
-  import "../theme.css";
+import "@link42/tokens";
+import { onMount } from "svelte";
+import { goto } from "$app/navigation";
+import { base } from "$app/paths";
+import { page } from "$app/state";
+import "../brand.css";
+import "@link42/ui/patterns.css";
+import "@link42/ui/components.css";
+import { PlatformBar, Header, Footer, Toast, theme } from "@link42/ui";
 
-  let { children } = $props();
-  let dark = $state(false);
+let { children } = $props();
 
-  const toggleTheme = (): void => {
-    dark = document.documentElement.dataset.theme !== "dark";
-    const next = dark ? "dark" : "light";
-    document.documentElement.dataset.theme = next;
-    try {
-      localStorage.setItem("patch8-theme", next);
-    } catch {
-      // Theme selection still works for this page when storage is unavailable.
-    }
-  };
+const navItems = [
+  { href: `${base}/search`, label: "Search" },
+  { href: `${base}/software`, label: "Software" },
+  { href: `${base}/packages`, label: "Packages" },
+  { href: `${base}/reports/patch-tuesday`, label: "Reports" },
+  { href: `${base}/feeds`, label: "Feeds" },
+];
+
+onMount(() => {
+  theme.init();
+});
 </script>
 
-<svelte:head>
-  <title>Patch8 — vulnerability intelligence</title>
-  <meta
-    name="description"
-    content="Patch8 is a planned, public, browser-direct vulnerability intelligence explorer."
-  />
-</svelte:head>
+<a href="#main-content" class="skip-link">Skip to content</a>
 
-<a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header">
-  <a class="brand" href={`${base}/`} aria-label="Patch8 home">
-    <span class="brand-mark" aria-hidden="true">P8</span>
-    <span>Patch8</span>
-  </a>
-  <nav aria-label="Primary navigation">
-    <a href="#capabilities">Capabilities</a>
-    <a href="#sources">Sources</a>
-    <a href="https://github.com/link42-au/patch8">Source code</a>
-  </nav>
-  <button class="theme-toggle" type="button" aria-label="Toggle colour theme" onclick={toggleTheme}>
-    <span aria-hidden="true">◐</span>
-  </button>
-</header>
+<PlatformBar
+  currentApp="patch8"
+  currentHref={`${base}/`}
+  theme={theme.value}
+  onToggleTheme={() => theme.toggle()}
+/>
 
-{@render children()}
+<Header
+  navItems={navItems}
+  activePath={page.url.pathname}
+  search={{ placeholder: "Search CVEs...", onSubmit: (q) => { goto(q ? `${base}/search?q=${encodeURIComponent(q)}` : `${base}/search`); } }}
+/>
 
-<footer>
-  <p>Patch8 is free software licensed under AGPL-3.0-or-later.</p>
-  <p>No account, paid feature, application server, or hosted database.</p>
-</footer>
+<main id="main-content">
+  {@render children()}
+</main>
+
+<Footer appName="patch8" excludeApps={["login2", "peer6"]} />
+
+<Toast />
+
+<style>
+   .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 0;
+      background: var(--accent);
+      color: white;
+      padding: 0.5rem 1rem;
+      z-index: 100;
+      text-decoration: none;
+      font-size: 13px;
+      border-radius: 0 0 6px 0;
+   }
+   .skip-link:focus {
+      top: 0;
+   }
+   main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 20px;
+      min-height: calc(100vh - 50px - 60px);
+   }
+ </style>

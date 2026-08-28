@@ -11,10 +11,12 @@ await access(new URL("fonts/Geist-wght-v1.7.1.woff2", BUILD));
 
 const html = await readFile(new URL("index.html", BUILD), "utf8");
 for (const text of [
-  "Know what needs patching.",
-  "static shell is live-verified on GitHub Pages",
-  "Lookup planned",
-  "The live shell makes no data queries",
+  "Vulnerability intelligence, prioritised",
+  "Search CVE IDs, descriptions, or packages",
+  "Recent KEV Vulnerabilities",
+  "Critical CVEs",
+  "High EPSS Risk",
+  "Patch Tuesday",
 ]) {
   if (!html.includes(text)) throw new Error(`Static output is missing required status copy: ${text}`);
 }
@@ -24,4 +26,4 @@ for (const forbidden of ["server", "worker.js", "functions", "api"]) {
   if (rootEntries.includes(forbidden)) throw new Error(`Static output contains forbidden runtime entry: ${forbidden}`);
 }
 
-console.log(`Static output verified: ${rootEntries.length} top-level entries and honest planned-capability copy.`);
+console.log(`Static output verified: ${rootEntries.length} top-level entries and the legacy Patch8 dashboard shell.`);
