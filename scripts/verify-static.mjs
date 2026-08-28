@@ -10,7 +10,12 @@ await access(new URL("favicon.svg", BUILD));
 await access(new URL("fonts/Geist-wght-v1.7.1.woff2", BUILD));
 
 const html = await readFile(new URL("index.html", BUILD), "utf8");
-for (const text of ["Know what needs patching.", "Lookup planned", "Data queries are intentionally unavailable"]) {
+for (const text of [
+  "Know what needs patching.",
+  "static shell is live-verified on GitHub Pages",
+  "Lookup planned",
+  "The live shell makes no data queries",
+]) {
   if (!html.includes(text)) throw new Error(`Static output is missing required status copy: ${text}`);
 }
 

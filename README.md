@@ -8,15 +8,15 @@ the historical Worker/D1 service with a static SvelteKit application intended fo
 | Area | State | Evidence |
 |---|---|---|
 | Repository shell | **source-complete** | Static build, tests, copied policy/contracts, architecture assertions, and Pages workflow are present locally. |
-| Published site | **not published** | No Pages deployment or production canary has been recorded from this repository. |
+| Static Pages shell | **live-verified** | [Hosted run 33157148459, attempt 2](https://github.com/link42-au/patch8/actions/runs/33157148459/attempts/2) verified and deployed the shell at [`link42-au.github.io/patch8/`](https://link42-au.github.io/patch8/). |
 | Exact CVE lookup | **planned; not implemented** | The approved source is anonymous browser-direct NVD CVE API 2.0. P1 makes no runtime data request. |
 | CISA KEV context | **planned; not implemented** | The approved source is official KEV JSON at an immutable `cisagov/kev-data` revision. No lock or adapter exists yet. |
 | FIRST EPSS | **disabled** | Direct display awaits a version-2 source-policy decision; dataset republication remains prohibited. |
 | OSV | **disabled for first release** | It awaits an enforceable home-database licence registry. |
 | AppThreat | **rejected for first release** | Record-level provenance and a supportable browser range-reader did not clear the release gates. |
 
-`source-complete` means the P1 repository slice and its local checks are complete. It does not mean the application has
-been published, queried live upstreams, passed a production canary, or implemented vulnerability lookup.
+`live-verified` applies only to the static P1 shell and its deployment canary. It does not mean the complete Patch8
+product is live: no upstream data adapter or vulnerability lookup has been implemented or live-verified.
 
 ## Architecture boundary
 

@@ -5,13 +5,15 @@ import Page from "./+page.svelte";
 afterEach(() => cleanup());
 
 describe("Patch8 shell", () => {
-  it("states that data capabilities are planned rather than implemented", () => {
+  it("distinguishes the live-verified shell from planned data capabilities", () => {
     render(Page);
 
     expect(screen.getByRole("heading", { level: 1, name: "Know what needs patching." })).toBeInTheDocument();
+    expect(screen.getByText(/static shell is live-verified on GitHub Pages/)).toBeInTheDocument();
     expect(
-      screen.getByText(/Exact CVE lookup and CISA Known Exploited Vulnerabilities context are planned/),
+      screen.getByText(/Exact CVE lookup and CISA Known Exploited Vulnerabilities context remain planned/),
     ).toBeInTheDocument();
+    expect(screen.getByText(/The live shell makes no data queries/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Lookup planned" })).toBeDisabled();
     expect(screen.getByLabelText("CVE identifier")).toBeDisabled();
   });

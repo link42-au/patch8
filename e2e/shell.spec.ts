@@ -10,8 +10,9 @@ test("static shell is honest, responsive, and accessible", async ({ page }) => {
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Know what needs patching." })).toBeVisible();
+  await expect(page.getByText(/static shell is live-verified on GitHub Pages/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Lookup planned" })).toBeDisabled();
-  await expect(page.getByText(/Data queries are intentionally unavailable/)).toBeVisible();
+  await expect(page.getByText(/The live shell makes no data queries/)).toBeVisible();
 
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
   const serious = results.violations.filter(({ impact }) => impact === "serious" || impact === "critical");

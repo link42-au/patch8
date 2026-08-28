@@ -3,8 +3,8 @@
     <p class="eyebrow">Public vulnerability intelligence</p>
     <h1 id="hero-title">Know what needs patching.</h1>
     <p class="lede">
-      Patch8 is being rebuilt as a read-only static application. Exact CVE lookup and CISA Known Exploited
-      Vulnerabilities context are planned, but are not implemented in this source-complete shell.
+      Patch8's static shell is live-verified on GitHub Pages. Exact CVE lookup and CISA Known Exploited Vulnerabilities
+      context remain planned and are not implemented.
     </p>
 
     <form class="lookup" aria-label="Planned CVE lookup">
@@ -13,7 +13,9 @@
         <input id="cve" value="CVE-2026-0001" disabled aria-describedby="lookup-status" />
         <button type="button" disabled>Lookup planned</button>
       </div>
-      <p id="lookup-status" class="status">Data queries are intentionally unavailable in this first repository slice.</p>
+      <p id="lookup-status" class="status">
+        The live shell makes no data queries; exact CVE and KEV adapters remain planned.
+      </p>
     </form>
   </section>
 
