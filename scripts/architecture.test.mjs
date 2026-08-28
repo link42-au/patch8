@@ -35,5 +35,12 @@ test("DuckDB Parquet extension is pinned and same-origin", async () => {
   assert.match(runtime, /custom_extension_repository/);
   assert.match(runtime, /autoinstall_known_extensions = false/);
   assert.match(runtime, /autoload_known_extensions = false/);
+  assert.match(runtime, /allowFullHTTPReads: false/);
+  assert.match(runtime, /forceFullHTTPReads: false/);
+  assert.match(runtime, /method: "HEAD"/);
+  assert.match(runtime, /credentials: "omit"/);
+  assert.ok(runtime.includes("cdn\\.hf\\.co"));
+  assert.match(runtime, /registerFileURL\(name, resolvedUrl, duckdb\.DuckDBDataProtocol\.HTTP, false\)/);
+  assert.doesNotMatch(runtime, /builtin_httpfs|INSTALL httpfs|LOAD httpfs/);
   assert.doesNotMatch(runtime, /extensions\.duckdb\.org/);
 });

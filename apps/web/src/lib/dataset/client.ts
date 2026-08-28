@@ -118,13 +118,14 @@ export class P2DatasetClient {
   }
 
   async exact(id: string): Promise<QueryResult<P2Vulnerability | null>> {
+    const normalizedId = id.toUpperCase();
     return this.withFallback(async (manifest, usedFallback) => {
-      const artifacts = artifactsForCve(manifest, "vulnerabilities", id);
+      const artifacts = artifactsForCve(manifest, "vulnerabilities", normalizedId);
       if (artifacts.length === 0) return this.evidence(manifest, [], null, usedFallback);
       const names = await this.register(manifest, artifacts);
       const rows = await this.runtime.query<P2Vulnerability>(
-        `SELECT * FROM ${this.from(names)} WHERE upper(cve_id) = upper(?) LIMIT 1`,
-        [id],
+        `SELECT * FROM ${this.from(names)} WHERE cve_id = ? LIMIT 1`,
+        [normalizedId],
       );
       return this.evidence(manifest, artifacts, rows[0] ? normalizeRow(rows[0]) : null, usedFallback);
     });
@@ -182,12 +183,17 @@ export class P2DatasetClient {
       const clauses: string[] = [];
       const values: unknown[] = [];
       if (params.q) {
-        clauses.push("(upper(cve_id) = upper(?) OR lower(description) LIKE lower(?))");
-        values.push(params.q, `%${params.q}%`);
+        if (exactRoute) {
+          clauses.push("cve_id = ?");
+          values.push(params.q.toUpperCase());
+        } else {
+          clauses.push("lower(description) LIKE lower(?)");
+          values.push(`%${params.q}%`);
+        }
       }
       if (params.severity) {
-        clauses.push("upper(severity) = upper(?)");
-        values.push(params.severity);
+        clauses.push("severity = ?");
+        values.push(params.severity.toUpperCase());
       }
       if (params.inKev) clauses.push("in_kev = 1");
       if (cveIds) {
@@ -214,10 +220,11 @@ export class P2DatasetClient {
   }
 
   async detail(id: string): Promise<QueryResult<P2Detail | null>> {
+    const normalizedId = id.toUpperCase();
     return this.withFallback(async (manifest, usedFallback) => {
       const artifacts = [
-        ...artifactsForCve(manifest, "vulnerabilities", id),
-        ...artifactsForCve(manifest, "affected_software", id),
+        ...artifactsForCve(manifest, "vulnerabilities", normalizedId),
+        ...artifactsForCve(manifest, "affected_software", normalizedId),
         ...globalArtifacts(manifest, "kev"),
       ];
       if (!artifacts.some((artifact) => artifact.table === "vulnerabilities")) {
@@ -240,8 +247,8 @@ export class P2DatasetClient {
          FROM ${this.from(cves)} v
          LEFT JOIN ${softwareFrom} s USING (cve_id)
          LEFT JOIN ${kevFrom} k USING (cve_id)
-         WHERE upper(v.cve_id) = upper(?) LIMIT 1`,
-        [id],
+         WHERE v.cve_id = ? LIMIT 1`,
+        [normalizedId],
       );
       return this.evidence(manifest, artifacts, rows[0] ? normalizeRow(rows[0]) : null, usedFallback);
     });

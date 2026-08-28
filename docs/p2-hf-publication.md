@@ -1,6 +1,15 @@
 # P2 immutable Hugging Face range proof
 
-Status: **source-ready; remote publication and proof pending**
+Status: **live-verified P2 feasibility canary**
+
+Live evidence recorded 2026-08-28:
+
+- immutable manifest revision `aa4e13c4564924c12a16720d8bebe57208dfccdd`;
+- immutable data revision `dba086354122790626c7f2b1bf9746f407b9bac5`;
+- exact-CVE DuckDB query: five Parquet payload GETs, all HTTP 206, totalling 176,465 of 3,617,105 bytes;
+- complete exact/filter/detail/product/corrupt/previous-good proof: 12 Parquet payload GETs, all HTTP 206,
+  totalling 287,285 bytes;
+- no Parquet payload GET returned HTTP 200, and no browser token, cookie, or application backend request was sent.
 
 This P2-only workflow publishes deterministic invented records to the existing public, ungated
 [`link42-au/patch`](https://huggingface.co/datasets/link42-au/patch) dataset. It is a feasibility canary, not the P7
@@ -82,6 +91,11 @@ verification does not depend on mutable external state. With it set, real Chromi
   recovery, and immutable previous-good fallback;
 - rejects authorization and cookie headers, application `/api/` calls, unexpected network origins, and mutable
   artifact URLs. Hugging Face's own same-host immutable resolve-cache redirect may appear in the request chain.
+
+Before registration, the browser follows an anonymous HEAD from the validated immutable Hugging Face URL and accepts
+only the resulting HTTPS `*.cdn.hf.co` URL. DuckDB-Wasm then uses fail-closed HTTP settings: full HTTP fallback is
+disabled, HEAD metadata is required, and each payload response must remain a partial range. Signed CDN URLs are not
+persisted or cached by the application.
 
 Passing this canary closes only P2's live Hugging Face range/CORS feasibility item. It does not satisfy P7's official
 source build, publisher credential, release readback, or production dataset acceptance gates.

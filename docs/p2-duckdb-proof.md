@@ -29,6 +29,12 @@ Svelte component, DOM contract, CSS, visible copy, or production data source cha
   optional real-browser proof pins immutable data/manifest revisions and checks anonymous CORS, HTTP 206 ranges,
   partial DuckDB reads, route/byte budgets, and previous-good fallback. See
   [`p2-hf-publication.md`](p2-hf-publication.md).
+- The public P2 canary passed in Chromium against manifest revision
+  `aa4e13c4564924c12a16720d8bebe57208dfccdd` and data revision
+  `dba086354122790626c7f2b1bf9746f407b9bac5`. The exact query transferred 176,465 of 3,617,105 bytes; the full proof
+  transferred 287,285 Parquet bytes. Every payload GET was HTTP 206, with no remote HTTP 200 fallback.
+- Remote files are resolved anonymously from validated immutable `link42-au/patch` URLs to approved HTTPS
+  `*.cdn.hf.co` targets by HEAD, then registered with full-read fallback disabled. CDN URLs are not persisted.
 
 ## Incomplete acceptance
 
@@ -38,8 +44,7 @@ mobile Safari itself passed. P2 therefore remains **in progress**, not `source-c
 representative mobile Safari run the same query, request-origin, transfer-budget, corrupt-update, and previous-good
 assertions.
 
-The public, ungated Hugging Face dataset `link42-au/patch` exists, and its anonymous API returned HTTP 200 at revision
-`4166c9ebad7b6ace32690bedd41748dfc88a12a6` on 2026-08-28. It does not yet contain a verified Patch8 release, so the
-synthetic proof does not claim live dataset-file CORS/range behaviour. P7 retains the local-build and scoped
-write/readback publication gates. P2 establishes same-origin deterministic query behaviour and partition budgets only.
-Explicit stale-manifest activation, persistent-cache behaviour, and browser memory profiling also remain unmeasured.
+The public, ungated Hugging Face dataset `link42-au/patch` now contains the live-verified synthetic P2 feasibility
+canary. That invented data is not a verified Patch8 vulnerability release. P7 retains the official-source local-build
+and scoped publisher write/readback gates. Explicit stale-manifest activation, persistent-cache behaviour, and browser
+memory profiling also remain unmeasured.

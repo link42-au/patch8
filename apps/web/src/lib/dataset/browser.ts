@@ -15,6 +15,40 @@ import previousManifestJson from "./fixtures/previous-manifest.json";
 import { P2DatasetClient } from "./client";
 import type { P2Manifest, P2SqlRuntime } from "./types";
 
+const resolveFileUrl = async (value: string): Promise<string> => {
+  const url = new URL(value, window.location.href);
+  if (url.origin === window.location.origin) return url.href;
+  if (
+    url.protocol !== "https:" ||
+    url.hostname !== "huggingface.co" ||
+    !/^\/datasets\/link42-au\/patch\/resolve\/[0-9a-f]{40}\/synthetic\/p2\/.+\.parquet$/.test(url.pathname) ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error("Remote Parquet URL is not an anonymous immutable Patch8 artifact");
+  }
+  const response = await fetch(url, {
+    method: "HEAD",
+    credentials: "omit",
+    redirect: "follow",
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`Remote Parquet resolution failed (${response.status})`);
+  const target = new URL(response.url);
+  if (
+    target.protocol !== "https:" ||
+    !/(?:^|\.)cdn\.hf\.co$/.test(target.hostname) ||
+    target.username ||
+    target.password ||
+    target.hash
+  ) {
+    throw new Error("Remote Parquet redirect did not resolve to an approved HF CDN URL");
+  }
+  return target.href;
+};
+
 const artifactUrls: Record<string, string> = {
   "corrupt.parquet": corruptUrl,
   "current-kev.parquet": currentKevUrl,
@@ -37,7 +71,7 @@ export class BrowserDuckDbRuntime implements P2SqlRuntime {
     await this.db.instantiate(mvpWasm);
     await this.db.open({
       accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
-      filesystem: { allowFullHTTPReads: true, reliableHeadRequests: true },
+      filesystem: { allowFullHTTPReads: false, forceFullHTTPReads: false, reliableHeadRequests: true },
       query: { castBigIntToDouble: true },
     });
     const extensionConnection = await this.db.connect();
@@ -66,7 +100,8 @@ export class BrowserDuckDbRuntime implements P2SqlRuntime {
 
   async registerFile(name: string, url: string): Promise<void> {
     await this.getConnection();
-    await this.db.registerFileURL(name, new URL(url, window.location.href).href, duckdb.DuckDBDataProtocol.HTTP, false);
+    const resolvedUrl = await resolveFileUrl(url);
+    await this.db.registerFileURL(name, resolvedUrl, duckdb.DuckDBDataProtocol.HTTP, false);
   }
 
   async query<T>(sql: string, params: unknown[] = []): Promise<T[]> {

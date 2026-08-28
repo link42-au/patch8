@@ -2,7 +2,7 @@ import { createServer, type Server } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Request } from "@playwright/test";
 import type {
   P2Detail,
   P2Product,
@@ -37,6 +37,16 @@ const ROOT = fileURLToPath(new URL("../apps/web/.p2-hf-proof", import.meta.url))
 
 const allowedRemoteHost = (hostname: string): boolean =>
   hostname === "huggingface.co" || hostname.endsWith(".huggingface.co") || hostname.endsWith(".hf.co");
+
+const parquetSourceUrl = (request: Request): string | null => {
+  let candidate: Request | null = request;
+  while (candidate) {
+    const url = candidate.url();
+    if (new URL(url).pathname.endsWith(".parquet")) return url;
+    candidate = candidate.redirectedFrom();
+  }
+  return null;
+};
 
 const contentType = (path: string): string => {
   if (extname(path) === ".js") return "text/javascript; charset=utf-8";
@@ -79,7 +89,16 @@ test("immutable HF files support anonymous CORS, partial ranges, DuckDB, and fal
   test.skip(!REVISION_PATTERN.test(REVISION), "Set PATCH8_HF_P2_REVISION to an immutable 40-hex manifest revision");
   const { server, origin } = await startProofServer();
   const requests: { url: string; method: string; authorization?: string; cookie?: string }[] = [];
-  const responses: { url: string; method: string; status: number; length: number; cors?: string }[] = [];
+  const responses: {
+    url: string;
+    method: string;
+    status: number;
+    length: number;
+    cors?: string;
+    range?: string;
+    parquetSource?: string;
+  }[] = [];
+  const resolvedParquetSources = new Map<string, string>();
   let phase: "load" | "range-query" | "full-query" = "load";
   const phaseResponses: Record<string, typeof responses> = { load: [], "range-query": [], "full-query": [] };
 
@@ -93,12 +112,18 @@ test("immutable HF files support anonymous CORS, partial ranges, DuckDB, and fal
     });
   });
   page.on("response", (response) => {
+    const request = response.request();
+    let source = parquetSourceUrl(request);
+    if (source && request.method() === "HEAD") resolvedParquetSources.set(response.url(), source);
+    source ??= resolvedParquetSources.get(request.url()) ?? null;
     const item = {
       url: response.url(),
-      method: response.request().method(),
+      method: request.method(),
       status: response.status(),
       length: Number(response.headers()["content-length"] ?? 0),
       cors: response.headers()["access-control-allow-origin"],
+      range: request.headers().range,
+      parquetSource: source ?? undefined,
     };
     responses.push(item);
     phaseResponses[phase].push(item);
@@ -124,10 +149,11 @@ test("immutable HF files support anonymous CORS, partial ranges, DuckDB, and fal
     expect(exact.declaredBytes).toBe(loaded.exactArtifact.bytes);
 
     const exactGets = phaseResponses["range-query"].filter(
-      ({ url, method }) => method === "GET" && new URL(url).pathname.endsWith(".parquet"),
+      ({ method, parquetSource }) => method === "GET" && parquetSource,
     );
     const exactBytes = exactGets.reduce((total, { length }) => total + length, 0);
     expect(exactGets.some(({ status }) => status === 206)).toBe(true);
+    expect(exactGets.some(({ status }) => status === 200)).toBe(false);
     expect(exactBytes).toBeGreaterThan(0);
     expect(exactBytes).toBeLessThan(loaded.exactArtifact.bytes);
 
@@ -141,9 +167,12 @@ test("immutable HF files support anonymous CORS, partial ranges, DuckDB, and fal
     expect(result.fallback.releaseId).toBe("p2-hf-previous");
     expect(result.fallback.value.description).toContain("previous-good");
 
-    const fullBytes = phaseResponses["full-query"]
-      .filter(({ method }) => method === "GET")
-      .reduce((total, { length }) => total + length, 0);
+    const fullGets = phaseResponses["full-query"].filter(
+      ({ method, parquetSource }) => method === "GET" && parquetSource,
+    );
+    const fullBytes = fullGets.reduce((total, { length }) => total + length, 0);
+    expect(fullGets.some(({ status }) => status === 206)).toBe(true);
+    expect(fullGets.some(({ status }) => status === 200)).toBe(false);
     expect(fullBytes).toBeLessThanOrEqual(16_777_216);
     expect(requests.every(({ authorization, cookie }) => !authorization && !cookie)).toBe(true);
     expect(
@@ -174,7 +203,9 @@ test("immutable HF files support anonymous CORS, partial ranges, DuckDB, and fal
       immutableParquetRequests.every(({ url }) => url.includes(`/resolve/${loaded.dataRevision}/synthetic/p2/`)),
     ).toBe(true);
     console.log(
-      `P2 HF evidence: revision ${REVISION}, data ${loaded.dataRevision}, exact ${exactBytes}/${loaded.exactArtifact.bytes} bytes, full ${fullBytes} bytes.`,
+      `P2 HF evidence: revision ${REVISION}, data ${loaded.dataRevision}, exact ${exactBytes}/${loaded.exactArtifact.bytes} bytes ` +
+        `[${exactGets.map(({ status, length, range, url }) => `${new URL(url).hostname} ${status} ${range ?? "redirect"} ${length}`).join("; ")}], ` +
+        `full ${fullBytes} bytes [${fullGets.map(({ status }) => status).join(",")}].`,
     );
   } finally {
     await new Promise<void>((resolveClosed, reject) => {

@@ -22,6 +22,7 @@ const FORBIDDEN_DEPENDENCIES = [
   "wrangler",
 ];
 const SECRET_REFERENCE = /\b(?:NVD_API_KEY|HF_TOKEN|HUGGINGFACE_TOKEN|OPENAI_API_KEY|DATABASE_URL)\b/;
+const DATASET_FETCH_RUNTIME = "apps/web/src/lib/dataset/browser.ts";
 
 const walk = async (directory) => {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -73,7 +74,7 @@ for (const file of files) {
     if (!path.startsWith("scripts/") && SECRET_REFERENCE.test(source)) {
       throw new Error(`Secret-like runtime configuration reference: ${path}`);
     }
-    if (path.startsWith("apps/web/src/") && /\bfetch\s*\(/.test(source)) {
+    if (path.startsWith("apps/web/src/") && path !== DATASET_FETCH_RUNTIME && /\bfetch\s*\(/.test(source)) {
       throw new Error(`Static browser code must not bypass the dataset runtime with fetch: ${path}`);
     }
     if (path.startsWith(".github/") && /\bsecrets\./.test(source)) {
@@ -83,5 +84,5 @@ for (const file of files) {
 }
 
 console.log(
-  `Architecture verified: ${files.length} source files, static client only, no backend fetch or runtime secret.`,
+  `Architecture verified: ${files.length} source files, static client only, approved dataset resolution only, no backend fetch or runtime secret.`,
 );

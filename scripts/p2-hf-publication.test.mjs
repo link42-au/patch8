@@ -104,6 +104,13 @@ test("P2 HF browser proof is opt-in, immutable, anonymous, and bounded", async (
   assert.match(browserProof, /credentials: "omit"/);
   assert.match(browserProof, /Range: "bytes=0-1023"/);
   assert.doesNotMatch(browserProof, /HF_TOKEN|HUGGINGFACE_TOKEN|authorization/i);
+  const runtime = await readFile(new URL("../apps/web/src/lib/dataset/browser.ts", import.meta.url), "utf8");
+  assert.match(runtime, /allowFullHTTPReads: false/);
+  assert.match(runtime, /forceFullHTTPReads: false/);
+  assert.match(runtime, /method: "HEAD"/);
+  assert.match(runtime, /credentials: "omit"/);
+  assert.match(runtime, /registerFileURL\(name, resolvedUrl, duckdb\.DuckDBDataProtocol\.HTTP, false\)/);
+  assert.match(runtime, /DuckDBDataProtocol\.HTTP, false/);
   assert.match(browserTest, /status: 206/);
   assert.match(browserTest, /toBeLessThan\(loaded\.exactArtifact\.bytes\)/);
   assert.match(browserTest, /PATCH8_HF_P2_REVISION/);
