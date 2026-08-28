@@ -1,0 +1,359 @@
+:root {
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color-scheme: light;
+  --bg: #fffafa;
+  --bg-subtle: #fff1f2;
+  --surface: #ffffff;
+  --border: #fecdd3;
+  --border-strong: #fda4af;
+  --text: #1f1517;
+  --text-mid: #5f4a50;
+  --text-dim: #7f666c;
+  --accent: #be123c;
+  --accent-solid: #e11d48;
+  --accent-text: #9f1239;
+  --accent-bg: #ffe4e6;
+  --focus: #be123c;
+  --shadow: 0 18px 45px rgb(159 18 57 / 0.09);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #130d0f;
+  --bg-subtle: #211317;
+  --surface: #1c1316;
+  --border: #48232d;
+  --border-strong: #713044;
+  --text: #fff1f2;
+  --text-mid: #e8bac5;
+  --text-dim: #c68e9c;
+  --accent: #fb7185;
+  --accent-solid: #e11d48;
+  --accent-text: #fda4af;
+  --accent-bg: #3a1520;
+  --focus: #fb7185;
+  --shadow: 0 18px 45px rgb(0 0 0 / 0.32);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 85% 8%, color-mix(in srgb, var(--accent-bg) 75%, transparent), transparent 31rem),
+    var(--bg);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 20;
+  top: 0.75rem;
+  left: 0.75rem;
+  padding: 0.55rem 0.8rem;
+  color: var(--surface);
+  background: var(--text);
+  border-radius: 0.45rem;
+  transform: translateY(-160%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.site-header,
+footer,
+main {
+  width: min(1120px, calc(100% - 2rem));
+  margin-inline: auto;
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  min-height: 5rem;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.brand-mark {
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  place-items: center;
+  color: #fff;
+  background: var(--accent-solid);
+  border-radius: 0.65rem;
+  font-family: "Geist Mono", monospace;
+  font-size: 0.78rem;
+}
+
+nav {
+  display: flex;
+  gap: 1.4rem;
+  margin-left: auto;
+}
+
+nav a {
+  color: var(--text-mid);
+  font-size: 0.92rem;
+  font-weight: 550;
+  text-decoration: none;
+}
+
+nav a:hover {
+  color: var(--accent-text);
+}
+
+.theme-toggle {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.hero {
+  padding: clamp(4rem, 10vw, 8.5rem) 0 clamp(4rem, 8vw, 7rem);
+}
+
+.eyebrow {
+  margin: 0 0 0.7rem;
+  color: var(--accent-text);
+  font-family: "Geist Mono", monospace;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  max-width: 14ch;
+  margin-bottom: 1.25rem;
+  font-size: clamp(3rem, 8vw, 6.7rem);
+  line-height: 0.96;
+  letter-spacing: -0.065em;
+}
+
+h2 {
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  line-height: 1.05;
+  letter-spacing: -0.045em;
+}
+
+h3 {
+  margin-bottom: 0.6rem;
+  font-size: 1.25rem;
+}
+
+.lede {
+  max-width: 720px;
+  margin-bottom: 2rem;
+  color: var(--text-mid);
+  font-size: clamp(1.08rem, 2vw, 1.3rem);
+}
+
+.lookup {
+  max-width: 680px;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.lookup label {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.lookup-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.lookup input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.8rem 0.95rem;
+  color: var(--text-dim);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  font-family: "Geist Mono", monospace;
+}
+
+.lookup button {
+  padding: 0.8rem 1rem;
+  color: #fff;
+  background: var(--accent-solid);
+  border: 0;
+  border-radius: 0.6rem;
+  font-weight: 650;
+}
+
+.lookup :disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.status {
+  margin: 0.65rem 0 0;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+
+.section {
+  padding: clamp(3rem, 7vw, 6rem) 0;
+  border-top: 1px solid var(--border);
+}
+
+.section-heading {
+  max-width: 660px;
+  margin-bottom: 2rem;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.cards article {
+  padding: 1.5rem;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+}
+
+.cards p,
+.source-panel > p {
+  margin-bottom: 0;
+  color: var(--text-mid);
+}
+
+.state {
+  display: inline-block;
+  margin-bottom: 1.25rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-family: "Geist Mono", monospace;
+  font-size: 0.7rem;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.state.planned {
+  color: var(--accent-text);
+  background: var(--accent-bg);
+}
+
+.state.disabled {
+  color: var(--text-mid);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+}
+
+.source-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: start;
+}
+
+footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 2rem 0 3rem;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+
+footer p {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .site-header {
+    flex-wrap: wrap;
+    padding: 1rem 0;
+  }
+
+  nav {
+    order: 3;
+    width: 100%;
+    gap: 1rem;
+    overflow-x: auto;
+  }
+
+  .theme-toggle {
+    margin-left: auto;
+  }
+
+  .cards,
+  .source-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .lookup-row,
+  footer {
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

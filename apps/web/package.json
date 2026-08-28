@@ -1,0 +1,28 @@
+{
+  "name": "@patch8/web",
+  "version": "0.0.1",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite dev",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+  },
+  "dependencies": {
+    "@sveltejs/kit": "2.70.3",
+    "svelte": "5.56.10"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "3.0.10",
+    "@sveltejs/vite-plugin-svelte": "5.1.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/svelte": "5.2.9",
+    "jsdom": "30.0.1",
+    "svelte-check": "4.3.4",
+    "vite": "6.4.3",
+    "vitest": "4.1.5"
+  }
+}
