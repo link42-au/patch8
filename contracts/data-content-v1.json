@@ -1,0 +1,93 @@
+{
+  "contract_version": 1,
+  "rights_policy_version": "1.0.0",
+  "required_source_ids": [
+    "patch8_cvelist_v5",
+    "patch8_nvd",
+    "patch8_cisa_kev",
+    "patch8_github_advisory_database",
+    "patch8_cisa_vulnrichment",
+    "patch8_mitre_cwe"
+  ],
+  "forbidden_source_ids": [
+    "patch8_first_epss",
+    "patch8_osv",
+    "patch8_enisa_euvd",
+    "patch8_microsoft_msrc",
+    "patch8_cisco_psirt"
+  ],
+  "tables": {
+    "vulnerabilities": ["cve_id", "cve_year", "cve_bucket", "record_state", "published_at", "published_observation_id", "modified_at", "modified_observation_id", "description", "description_observation_id", "severity", "cvss_score", "cvss_vector", "cvss_version", "cvss_observation_id", "kev_status", "in_kev", "kev_observation_id", "kev_date_added", "kev_due_date", "kev_ransomware_use", "ssvc_exploitation", "ssvc_automatable", "ssvc_technical_impact", "ssvc_observation_id", "package_count", "package_count_derivation_id", "software_count", "software_count_derivation_id", "source_count", "source_count_derivation_id", "last_observed_at", "selection_derivation_id", "rights_policy_version", "schema_version"],
+    "descriptions": ["observation_id", "cve_id", "lang", "description", "provider_org_id", "provider_short_name", "source_published_at", "source_modified_at", "is_current", "provenance_id", "rights_policy_version", "schema_version"],
+    "cvss_observations": ["observation_id", "cve_id", "source_id", "metric_author", "metric_type", "cvss_version", "vector", "base_score", "base_severity", "source_modified_at", "is_current", "provenance_id", "rights_policy_version", "schema_version"],
+    "weakness_observations": ["observation_id", "cve_id", "cwe_id", "source_id", "metric_author", "source_modified_at", "is_current", "provenance_id", "rights_policy_version", "schema_version"],
+    "references": ["observation_id", "cve_id", "source_id", "url", "tags", "source_modified_at", "is_current", "provenance_id", "rights_policy_version", "schema_version"],
+    "affected_software": ["observation_id", "cve_id", "configuration_id", "node_id", "parent_node_id", "operator", "negate", "vulnerable", "match_criteria_id", "vendor", "product", "cpe_uri", "version", "version_start_including", "version_start_excluding", "version_end_including", "version_end_excluding", "source_id", "source_modified_at", "is_current", "provenance_id", "rights_policy_version", "schema_version"],
+    "ghsa_advisories": ["observation_id", "ghsa_id", "published_at", "modified_at", "withdrawn_at", "summary", "details", "qualitative_severity", "references", "credits", "is_current", "provenance_id", "rights_policy_version", "schema_version"],
+    "ghsa_cve_aliases": ["observation_id", "ghsa_id", "alias_index", "cve_id", "is_current", "provenance_id", "rights_policy_version", "schema_version"],
+    "ghsa_affected_packages": ["observation_id", "ghsa_id", "affected_index", "ecosystem", "ecosystem_original", "package_name", "package_url", "is_current", "provenance_id", "rights_policy_version", "schema_version"],
+    "ghsa_package_ranges": ["observation_id", "ghsa_id", "affected_index", "range_index", "range_type", "range_repo", "is_current", "provenance_id", "rights_policy_version", "schema_version"],
+    "ghsa_range_events": ["observation_id", "ghsa_id", "affected_index", "range_index", "event_index", "event_type", "event_value", "is_current", "provenance_id", "rights_policy_version", "schema_version"],
+    "ghsa_explicit_versions": ["observation_id", "ghsa_id", "affected_index", "version_index", "version", "is_current", "provenance_id", "rights_policy_version", "schema_version"],
+    "kev_observations": ["observation_id", "cve_id", "catalog_version", "catalog_released_at", "vendor_project", "product", "vulnerability_name", "date_added", "short_description", "required_action", "due_date", "known_ransomware_campaign_use", "notes", "cwe_ids", "is_current", "provenance_id", "rights_policy_version", "schema_version"],
+    "ssvc_observations": ["observation_id", "cve_id", "exploitation", "automatable", "technical_impact", "decision_at", "provider_org_id", "provider_short_name", "source_modified_at", "is_current", "provenance_id", "rights_policy_version", "schema_version"],
+    "cwe_catalog": ["observation_id", "cwe_id", "name", "entry_type", "abstraction", "status", "description", "extended_description", "relationships", "applicable_platforms", "consequences", "detection_methods", "mitigations", "notes", "external_references", "content_history", "cwe_version", "provenance_id", "rights_policy_version", "schema_version"],
+    "provenance": ["provenance_id", "source_id", "source_display_name", "source_policy_decision", "endpoint_or_repository", "source_record_path", "source_record_sha256", "source_record_bytes", "source_published_at", "source_modified_at", "parser_name", "parser_version", "transformation_version", "table_schema_version", "rights_policy_schema_version", "rights_policy_version", "source_field_rule", "author_or_provider", "transformation_kind", "modification_note", "required_notice_ids", "schema_version"],
+    "source_snapshots": ["source_snapshot_id", "source_id", "endpoint_or_repository", "immutable_revision", "source_version", "catalog_version", "schema_version_seen", "etag", "last_modified", "window_start", "window_end", "complete_input_sha256", "complete_input_bytes", "checked_at", "source_retrieved_at", "source_observed_at", "last_successful_watermark", "builder_source_revision", "rights_policy_version", "schema_version"],
+    "derivations": ["derivation_id", "rule_id", "rule_version", "output_table", "output_key", "output_field", "input_observation_ids", "schema_version"],
+    "change_events": ["event_id", "source_id", "entity_type", "entity_id", "field_path", "change_type", "old_observation_id", "new_observation_id", "old_value_hash", "new_value_hash", "source_event_at", "observed_at", "provenance_id", "rights_policy_version", "schema_version"],
+    "source_status": ["source_id", "source_snapshot_id", "capability_stage", "state", "checked_at", "source_modified_at", "last_success_at", "last_successful_watermark", "source_version", "immutable_revision", "dataset_built_at", "manifest_activated_at", "stale_at", "error_class", "rights_policy_version", "schema_version"],
+    "capability_status": ["capability_id", "state", "coverage_basis", "coverage_numerator", "coverage_denominator", "coverage_as_at", "source_ids", "dataset_built_at", "manifest_activated_at", "stale_at", "derivation_id", "schema_version"],
+    "vulnerability_recent": ["cve_id", "record_state", "published_at", "description", "severity", "cvss_score", "kev_status", "published_year", "published_month", "selected_observation_id", "derivation_id", "schema_version"],
+    "vulnerability_search_terms": ["term", "term_kind", "cve_id", "rank_class", "selected_observation_id", "derivation_id", "schema_version"],
+    "software_product_vulnerabilities": ["cve_id", "vendor", "product", "cpe_uri", "version", "version_start_including", "version_start_excluding", "version_end_including", "version_end_excluding", "affected_observation_id", "derivation_id", "schema_version"],
+    "package_vulnerabilities": ["cve_id", "ghsa_id", "affected_index", "ecosystem", "package_name", "package_url", "ranges", "explicit_versions", "input_observation_ids", "association_kind", "derivation_id", "schema_version"],
+    "kev_current": ["cve_id", "kev_observation_id", "date_added", "due_date", "vendor_project", "product", "known_ransomware_campaign_use", "derivation_id", "schema_version"],
+    "cwe_by_vulnerability": ["cve_id", "cwe_id", "weakness_observation_id", "cwe_catalog_observation_id", "name", "description", "derivation_id", "schema_version"]
+  },
+  "required_capabilities": {
+    "cve_identity": "supported",
+    "cve_description": "supported",
+    "nvd_analysis": "supported",
+    "kev": "supported",
+    "package_coverage": "partial",
+    "cisa_vulnrichment": "supported",
+    "cwe_detail": "supported",
+    "epss": "unavailable",
+    "patch_tuesday": "unavailable",
+    "threat_context": "unavailable"
+  },
+  "freshness_hours": {
+    "patch8_cvelist_v5": 30,
+    "patch8_nvd": 30,
+    "patch8_cisa_kev": 30,
+    "patch8_github_advisory_database": 30,
+    "patch8_cisa_vulnrichment": 30,
+    "patch8_mitre_cwe": 744
+  },
+  "git_source_ids": [
+    "patch8_cvelist_v5",
+    "patch8_github_advisory_database",
+    "patch8_cisa_vulnrichment"
+  ],
+  "provenance_fields": ["observation_id", "provenance_id", "rights_policy_version", "schema_version"],
+  "derived_pointer_suffixes": ["_derivation_id", "_observation_id"],
+  "forbidden_tokens": [
+    "epss",
+    "patch_tuesday",
+    "source_raw",
+    "source_payload",
+    "raw_response",
+    "raw_record",
+    "linked_document_body",
+    "vendor_comment"
+  ],
+  "notice_ids": [
+    "notice.cve_program",
+    "notice.nvd",
+    "notice.cisa_kev",
+    "notice.github_advisory_database",
+    "notice.cisa_vulnrichment",
+    "notice.mitre_cwe"
+  ]
+}

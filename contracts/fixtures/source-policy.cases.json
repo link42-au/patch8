@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "name": "accept the exact Patch8 v1 public-dataset registry",
+      "mutations": [],
+      "expected_error_codes": []
+    },
+    {
+      "name": "reject an unregistered cvelistV5 source",
+      "mutations": [{ "operation": "delete", "path": "/sources/0" }],
+      "expected_error_codes": ["CVELIST_RULE_INVALID", "SOURCE_FIELDS_MISSING", "SOURCE_GATE_INCOMPLETE", "SOURCE_NOTICE_MISSING", "SOURCE_NOT_ENABLED", "SOURCE_REGISTRY_MISMATCH"]
+    },
+    {
+      "name": "reject an unknown source identifier",
+      "mutations": [{ "operation": "set", "path": "/sources/10/id", "value": "patch8_unknown" }],
+      "expected_error_codes": ["FORBIDDEN_SOURCE_ENABLED", "SOURCE_REGISTRY_MISMATCH"]
+    },
+    {
+      "name": "reject a cvelistV5 rule without the official Downloads evidence",
+      "mutations": [{ "operation": "delete", "path": "/sources/0/official_terms_urls/1" }],
+      "expected_error_codes": ["CVELIST_RULE_INVALID"]
+    },
+    {
+      "name": "reject a cvelistV5 rule with a broadened field",
+      "mutations": [{ "operation": "set", "path": "/sources/0/allowed_fields/0", "value": "containers.cna.affected.*" }],
+      "expected_error_codes": ["CVELIST_RULE_INVALID"]
+    },
+    {
+      "name": "reject NVD when an exact configuration structural field is absent",
+      "mutations": [{ "operation": "delete", "path": "/sources/1/allowed_fields/14" }],
+      "expected_error_codes": ["NVD_STRUCTURE_RULE_INCOMPLETE"]
+    },
+    {
+      "name": "reject enabling FIRST EPSS",
+      "mutations": [{ "operation": "set", "path": "/sources/6/enabled", "value": true }],
+      "expected_error_codes": ["FORBIDDEN_SOURCE_ENABLED"]
+    },
+    {
+      "name": "reject adding an EPSS output field",
+      "mutations": [{ "operation": "set", "path": "/sources/6/allowed_fields/0", "value": "epss" }],
+      "expected_error_codes": ["FORBIDDEN_SOURCE_ENABLED"]
+    },
+    {
+      "name": "reject an open unknown-source default",
+      "mutations": [{ "operation": "set", "path": "/unknown_source_policy", "value": "allow" }],
+      "expected_error_codes": ["SOURCE_POLICY_STRUCTURE_INVALID"]
+    },
+    {
+      "name": "reject raw cvelistV5 publication",
+      "mutations": [{ "operation": "set", "path": "/sources/0/raw_publication", "value": true }],
+      "expected_error_codes": ["SOURCE_GATE_INCOMPLETE", "SOURCE_POLICY_STRUCTURE_INVALID"]
+    },
+    {
+      "name": "reject an unknown public use mode",
+      "mutations": [{ "operation": "set", "path": "/use_mode", "value": "browser_direct_display" }],
+      "expected_error_codes": ["SOURCE_NOT_ENABLED", "SOURCE_POLICY_STRUCTURE_INVALID"]
+    }
+  ]
+}

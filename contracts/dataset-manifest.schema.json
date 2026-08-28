@@ -1,704 +1,330 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://link42.app/contracts/dataset-manifest.schema.json",
-  "title": "Link42 Dataset Release Manifest",
-  "description": "Provider-neutral release contract shared by the Patch8 and Threat10 static dataset consumers. Version 1 stores immutable data in a Hugging Face repository, while keeping provider details isolated in the storage object.",
+  "$id": "https://link42.app/patch8/contracts/dataset-manifest.schema.json",
+  "title": "Patch8 immutable dataset release manifest",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "manifest_version",
     "dataset",
     "release_id",
-    "generated_at",
     "storage",
     "compatibility",
-    "previous_release",
-    "builder",
+    "rights_policy",
+    "previous_good",
+    "clocks",
+    "release_bounds",
     "table_schemas",
     "routing",
     "artifacts",
-    "provenance"
+    "source_snapshots",
+    "field_lineage",
+    "derivations",
+    "coverage"
   ],
   "properties": {
-    "manifest_version": {
-      "description": "Version of this manifest contract.",
-      "const": 1
-    },
-    "dataset": {
-      "description": "Logical Link42 dataset published by this release.",
-      "enum": [
-        "patch8",
-        "threat10"
-      ]
-    },
-    "release_id": {
-      "description": "Safe opaque identifier that is unique within the dataset repository.",
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128,
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
-    },
-    "generated_at": {
-      "description": "UTC timestamp at which the complete release manifest was generated.",
-      "type": "string",
-      "format": "date-time"
-    },
-    "storage": {
-      "$ref": "#/$defs/storage"
-    },
-    "compatibility": {
-      "$ref": "#/$defs/compatibility"
-    },
-    "previous_release": {
-      "description": "Previous known-good release used for rollback, or null for the first release.",
+    "manifest_version": { "const": 1 },
+    "dataset": { "const": "patch8" },
+    "release_id": { "$ref": "#/$defs/safeId" },
+    "storage": { "$ref": "#/$defs/storage" },
+    "compatibility": { "$ref": "#/$defs/compatibility" },
+    "rights_policy": { "$ref": "#/$defs/rightsPolicy" },
+    "previous_good": {
       "oneOf": [
-        {
-          "type": "null"
-        },
-        {
-          "$ref": "#/$defs/previousRelease"
-        }
+        { "type": "null" },
+        { "$ref": "#/$defs/previousGood" }
       ]
     },
-    "builder": {
-      "$ref": "#/$defs/builder"
-    },
+    "clocks": { "$ref": "#/$defs/clocks" },
+    "release_bounds": { "$ref": "#/$defs/releaseBounds" },
     "table_schemas": {
-      "description": "Non-empty catalogue of logical table schemas. Schema ids must be unique; consumers must reject duplicate ids even when the entries otherwise differ.",
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": {
-        "$ref": "#/$defs/tableSchema"
-      }
+      "items": { "$ref": "#/$defs/tableSchema" }
     },
     "routing": {
-      "description": "Bounded artifact-routing rules, one unique entry per table schema id.",
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": {
-        "$ref": "#/$defs/routingEntry"
-      }
+      "items": { "$ref": "#/$defs/route" }
     },
     "artifacts": {
-      "description": "Complete immutable artifact inventory. Artifact ids and relative paths must each be unique within a release.",
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": {
-        "$ref": "#/$defs/artifact"
-      }
+      "items": { "$ref": "#/$defs/artifact" }
     },
-    "provenance": {
-      "$ref": "#/$defs/provenance"
-    }
+    "source_snapshots": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/sourceSnapshot" }
+    },
+    "field_lineage": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/fieldLineage" }
+    },
+    "derivations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/derivation" }
+    },
+    "coverage": { "$ref": "#/$defs/coverage" }
   },
   "$defs": {
     "safeId": {
-      "description": "A non-empty identifier safe for manifests, logs, and relative path components.",
       "type": "string",
       "minLength": 1,
-      "maxLength": 128,
+      "maxLength": 160,
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
     },
-    "nonEmptyString": {
-      "description": "A non-empty string.",
-      "type": "string",
-      "minLength": 1
-    },
-    "sha256": {
-      "description": "Lowercase hexadecimal SHA-256 digest.",
-      "type": "string",
-      "pattern": "^[0-9a-f]{64}$"
-    },
-    "immutableRevision": {
-      "description": "Immutable lowercase hexadecimal source revision.",
-      "type": "string",
-      "pattern": "^[0-9a-f]{40}$"
-    },
-    "httpsUrl": {
-      "description": "Absolute HTTPS URL.",
-      "type": "string",
-      "format": "uri",
-      "pattern": "^https://"
-    },
+    "nonEmpty": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "dateTime": { "type": "string", "format": "date-time" },
+    "httpsUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
     "relativePath": {
-      "description": "Portable relative path with no empty, current-directory, or parent-directory segment.",
       "type": "string",
       "minLength": 1,
       "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*/$)[A-Za-z0-9][A-Za-z0-9._/=-]*$"
     },
-    "scalar": {
-      "description": "JSON scalar value used for partition coordinates and generic key bounds.",
-      "type": [
-        "string",
-        "number",
-        "boolean",
-        "null"
-      ]
-    },
     "storage": {
-      "description": "Location of this immutable release. Provider-specific configuration is confined to this object.",
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "provider",
-        "repository",
-        "immutable_revision",
-        "base_url"
-      ],
+      "required": ["provider", "repository", "immutable_data_revision", "base_url"],
       "properties": {
-        "provider": {
-          "description": "Storage provider supported by manifest version 1.",
-          "enum": [
-            "huggingface"
-          ]
-        },
-        "repository": {
-          "description": "Provider repository in owner/name form.",
-          "type": "string",
-          "minLength": 3,
-          "maxLength": 192,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$"
-        },
-        "immutable_revision": {
-          "$ref": "#/$defs/immutableRevision"
-        },
-        "base_url": {
-          "$ref": "#/$defs/httpsUrl"
-        }
+        "provider": { "const": "huggingface" },
+        "repository": { "const": "link42-au/patch" },
+        "immutable_data_revision": { "$ref": "#/$defs/revision" },
+        "base_url": { "$ref": "#/$defs/httpsUrl" }
       }
     },
     "compatibility": {
-      "description": "Inclusive manifest-reader and data-schema compatibility bounds.",
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "min_reader_manifest_version",
-        "max_reader_manifest_version",
-        "min_reader_schema_version",
-        "max_reader_schema_version"
-      ],
+      "required": ["min_reader_manifest_version", "max_reader_manifest_version", "min_schema_version", "max_schema_version", "rights_policy_version"],
       "properties": {
-        "min_reader_manifest_version": {
-          "description": "Oldest manifest contract version a reader may implement.",
-          "type": "integer",
-          "minimum": 1
-        },
-        "max_reader_manifest_version": {
-          "description": "Newest manifest contract version a reader may implement.",
-          "type": "integer",
-          "minimum": 1
-        },
-        "min_reader_schema_version": {
-          "description": "Oldest table schema version the release may require a reader to support.",
-          "type": "integer",
-          "minimum": 1
-        },
-        "max_reader_schema_version": {
-          "description": "Newest table schema version the release may require a reader to support.",
-          "type": "integer",
-          "minimum": 1
-        }
+        "min_reader_manifest_version": { "type": "integer", "minimum": 1 },
+        "max_reader_manifest_version": { "type": "integer", "minimum": 1 },
+        "min_schema_version": { "type": "integer", "minimum": 1 },
+        "max_schema_version": { "type": "integer", "minimum": 1 },
+        "rights_policy_version": { "$ref": "#/$defs/nonEmpty" }
       }
     },
-    "previousRelease": {
-      "description": "Immutable locator and checksum for the previous known-good manifest.",
+    "rightsPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "release_id",
-        "immutable_revision",
-        "manifest_url",
-        "manifest_sha256"
-      ],
+      "required": ["id", "version", "schema_version", "path", "sha256", "use_mode"],
       "properties": {
-        "release_id": {
-          "$ref": "#/$defs/safeId"
-        },
-        "immutable_revision": {
-          "$ref": "#/$defs/immutableRevision"
-        },
-        "manifest_url": {
-          "$ref": "#/$defs/httpsUrl"
-        },
-        "manifest_sha256": {
-          "$ref": "#/$defs/sha256"
-        }
+        "id": { "const": "patch8-public-dataset" },
+        "version": { "$ref": "#/$defs/nonEmpty" },
+        "schema_version": { "const": 1 },
+        "path": { "const": "docs/licensing/source-policy.json" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "use_mode": { "const": "public_dataset_republication" }
       }
     },
-    "builder": {
-      "description": "Pinned builder identity needed to reproduce the release.",
+    "previousGood": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "name",
-        "version",
-        "source_revision",
-        "deterministic"
-      ],
+      "required": ["release_id", "manifest_revision", "data_revision", "manifest_url", "manifest_sha256"],
       "properties": {
-        "name": {
-          "$ref": "#/$defs/nonEmptyString"
-        },
-        "version": {
-          "$ref": "#/$defs/nonEmptyString"
-        },
-        "source_revision": {
-          "$ref": "#/$defs/nonEmptyString"
-        },
-        "deterministic": {
-          "description": "Confirms that identical pinned inputs must produce byte-identical outputs.",
-          "const": true
-        }
+        "release_id": { "$ref": "#/$defs/safeId" },
+        "manifest_revision": { "$ref": "#/$defs/revision" },
+        "data_revision": { "$ref": "#/$defs/revision" },
+        "manifest_url": { "$ref": "#/$defs/httpsUrl" },
+        "manifest_sha256": { "$ref": "#/$defs/sha256" }
       }
     },
-    "tableSchema": {
-      "description": "Versioned logical schema used by one or more release artifacts.",
+    "clocks": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "version",
-        "primary_key",
-        "fields",
-        "schema_sha256"
-      ],
+      "required": ["latest_source_checked_at", "latest_source_modified_at", "dataset_built_at", "manifest_published_at", "stale_at"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/safeId"
-        },
-        "version": {
-          "description": "Positive, monotonically increasing logical schema version.",
-          "type": "integer",
-          "minimum": 1
-        },
-        "primary_key": {
-          "description": "Ordered, non-empty set of unique field names forming the primary key.",
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": {
-            "$ref": "#/$defs/safeId"
-          }
-        },
-        "sort_keys": {
-          "description": "Optional ordered set of unique field names used for deterministic physical sorting.",
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": {
-            "$ref": "#/$defs/safeId"
-          }
-        },
-        "fields": {
-          "description": "Non-empty ordered field definitions. Field names must be unique within the table schema.",
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": {
-            "$ref": "#/$defs/field"
-          }
-        },
-        "schema_sha256": {
-          "$ref": "#/$defs/sha256"
-        }
+        "latest_source_checked_at": { "$ref": "#/$defs/dateTime" },
+        "latest_source_modified_at": { "$ref": "#/$defs/dateTime" },
+        "dataset_built_at": { "$ref": "#/$defs/dateTime" },
+        "manifest_published_at": { "$ref": "#/$defs/dateTime" },
+        "stale_at": { "$ref": "#/$defs/dateTime" }
+      }
+    },
+    "releaseBounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_artifact_bytes", "max_rows_per_artifact", "max_candidate_artifacts_per_query", "max_repository_revisions", "max_retained_bytes", "observed_repository_revisions", "observed_retained_bytes"],
+      "properties": {
+        "max_artifact_bytes": { "type": "integer", "minimum": 1 },
+        "max_rows_per_artifact": { "type": "integer", "minimum": 1 },
+        "max_candidate_artifacts_per_query": { "type": "integer", "minimum": 1 },
+        "max_repository_revisions": { "type": "integer", "minimum": 2 },
+        "max_retained_bytes": { "type": "integer", "minimum": 1 },
+        "observed_repository_revisions": { "type": "integer", "minimum": 1 },
+        "observed_retained_bytes": { "type": "integer", "minimum": 0 }
       }
     },
     "field": {
-      "description": "Generic logical field definition; domain-specific type systems are versioned outside this manifest contract.",
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "name",
-        "type",
-        "nullable"
-      ],
+      "required": ["name", "type", "nullable"],
       "properties": {
-        "name": {
-          "$ref": "#/$defs/safeId"
-        },
-        "type": {
-          "$ref": "#/$defs/nonEmptyString"
-        },
-        "nullable": {
-          "description": "Whether the logical field may contain null values.",
-          "type": "boolean"
-        }
+        "name": { "$ref": "#/$defs/safeId" },
+        "type": { "$ref": "#/$defs/nonEmpty" },
+        "nullable": { "type": "boolean" }
       }
     },
-    "routingEntry": {
-      "description": "Rules that map a bounded query to candidate artifacts for one table schema.",
+    "tableSchema": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "schema_id",
-        "maximum_candidate_artifacts",
-        "dimensions"
-      ],
+      "required": ["id", "version", "schema_sha256", "primary_key", "sort_keys", "fields"],
       "properties": {
-        "schema_id": {
-          "$ref": "#/$defs/safeId"
-        },
-        "maximum_candidate_artifacts": {
-          "description": "Hard upper bound on artifacts a normal routed query may select.",
-          "type": "integer",
-          "minimum": 1
-        },
-        "dimensions": {
-          "description": "Ordered, non-empty partition dimensions used by the router.",
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": {
-            "$ref": "#/$defs/routingDimension"
-          }
-        }
+        "id": { "$ref": "#/$defs/safeId" },
+        "version": { "const": 1 },
+        "schema_sha256": { "$ref": "#/$defs/sha256" },
+        "primary_key": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/safeId" } },
+        "sort_keys": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/safeId" } },
+        "fields": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/field" } }
       }
     },
-    "routingDimension": {
-      "description": "Deterministic transform from a source field to one partition coordinate.",
+    "routeDimension": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "partition_key",
-        "source_field",
-        "transform"
-      ],
+      "required": ["partition_key", "source_field", "transform"],
       "properties": {
-        "partition_key": {
-          "$ref": "#/$defs/safeId"
-        },
-        "source_field": {
-          "$ref": "#/$defs/safeId"
-        },
-        "transform": {
-          "description": "Provider-neutral deterministic routing transform.",
-          "enum": [
-            "identity",
-            "cve_year",
-            "year_utc",
-            "month_utc",
-            "sha256_prefix",
-            "constant"
-          ]
-        },
-        "parameter": {
-          "description": "Optional transform argument, such as prefix length or constant value.",
-          "type": "string"
-        }
+        "partition_key": { "$ref": "#/$defs/safeId" },
+        "source_field": { "$ref": "#/$defs/safeId" },
+        "transform": { "enum": ["identity", "cve_year", "sha256_prefix", "year_utc", "month_utc", "constant"] },
+        "parameter": { "$ref": "#/$defs/nonEmpty" }
       }
     },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "maximum_candidate_artifacts", "dimensions"],
+      "properties": {
+        "schema_id": { "$ref": "#/$defs/safeId" },
+        "maximum_candidate_artifacts": { "type": "integer", "minimum": 1 },
+        "dimensions": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/routeDimension" } }
+      }
+    },
+    "scalar": { "type": ["string", "number", "boolean", "null"] },
     "artifact": {
-      "description": "One immutable, checksummed data or index object in the release.",
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "kind",
-        "schema_id",
-        "schema_version",
-        "relative_path",
-        "media_type",
-        "byte_size",
-        "sha256",
-        "row_count",
-        "partition_values",
-        "key_range",
-        "time_range",
-        "source_ids"
-      ],
+      "required": ["id", "kind", "schema_id", "schema_version", "data_revision", "relative_path", "media_type", "byte_size", "sha256", "row_count", "partition_values", "key_min", "key_max", "source_ids"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/safeId"
-        },
-        "kind": {
-          "description": "Physical role of the artifact.",
-          "enum": [
-            "parquet",
-            "search_index",
-            "metadata"
-          ]
-        },
-        "schema_id": {
-          "$ref": "#/$defs/safeId"
-        },
-        "schema_version": {
-          "description": "Logical table schema version encoded by the artifact.",
-          "type": "integer",
-          "minimum": 1
-        },
-        "relative_path": {
-          "$ref": "#/$defs/relativePath"
-        },
-        "media_type": {
-          "description": "Internet media type of the artifact.",
-          "type": "string",
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$"
-        },
-        "byte_size": {
-          "description": "Artifact size in bytes.",
-          "type": "integer",
-          "minimum": 0
-        },
-        "sha256": {
-          "$ref": "#/$defs/sha256"
-        },
-        "row_count": {
-          "description": "Number of logical rows represented by the artifact.",
-          "type": "integer",
-          "minimum": 0
-        },
+        "id": { "$ref": "#/$defs/safeId" },
+        "kind": { "const": "parquet" },
+        "schema_id": { "$ref": "#/$defs/safeId" },
+        "schema_version": { "const": 1 },
+        "data_revision": { "$ref": "#/$defs/revision" },
+        "relative_path": { "$ref": "#/$defs/relativePath" },
+        "media_type": { "const": "application/vnd.apache.parquet" },
+        "byte_size": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "row_count": { "type": "integer", "minimum": 0 },
         "partition_values": {
-          "description": "Partition coordinate map. Keys must be safe identifiers and values must be JSON scalars.",
           "type": "object",
           "additionalProperties": false,
-          "patternProperties": {
-            "^[A-Za-z0-9][A-Za-z0-9._-]*$": {
-              "$ref": "#/$defs/scalar"
-            }
-          }
+          "patternProperties": { "^[A-Za-z0-9][A-Za-z0-9._-]*$": { "$ref": "#/$defs/scalar" } }
         },
-        "key_range": {
-          "description": "Inclusive or exclusive generic key bounds, or null when no meaningful key range exists.",
-          "oneOf": [
-            {
-              "type": "null"
-            },
-            {
-              "$ref": "#/$defs/keyRange"
-            }
-          ]
-        },
-        "time_range": {
-          "description": "UTC time bounds represented by the artifact, or null when the artifact is not time-ranged.",
-          "oneOf": [
-            {
-              "type": "null"
-            },
-            {
-              "$ref": "#/$defs/timeRange"
-            }
-          ]
-        },
-        "source_ids": {
-          "description": "Non-empty unique source identifiers that contributed rows or fields to the artifact.",
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": {
-            "$ref": "#/$defs/safeId"
-          }
-        }
+        "key_min": { "$ref": "#/$defs/scalar" },
+        "key_max": { "$ref": "#/$defs/scalar" },
+        "source_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/safeId" } }
       }
     },
-    "keyRange": {
-      "description": "Generic lower and upper key bounds for artifact pruning.",
+    "watermark": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "min",
-        "max"
-      ],
+      "required": ["kind", "cursor", "contiguous"],
       "properties": {
-        "min": {
-          "$ref": "#/$defs/scalar"
-        },
-        "max": {
-          "$ref": "#/$defs/scalar"
-        },
-        "inclusive_min": {
-          "description": "Whether the minimum bound is inclusive; defaults to true when omitted.",
-          "type": "boolean",
-          "default": true
-        },
-        "inclusive_max": {
-          "description": "Whether the maximum bound is inclusive; defaults to true when omitted.",
-          "type": "boolean",
-          "default": true
-        }
+        "kind": { "enum": ["git_commit", "catalogue_version", "api_window", "archive_version"] },
+        "cursor": { "$ref": "#/$defs/nonEmpty" },
+        "contiguous": { "const": true },
+        "previous_end": { "$ref": "#/$defs/dateTime" },
+        "window_start": { "$ref": "#/$defs/dateTime" },
+        "window_end": { "$ref": "#/$defs/dateTime" }
       }
     },
-    "timeRange": {
-      "description": "UTC start and end timestamps for artifact pruning.",
+    "sourceSnapshot": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "start",
-        "end"
-      ],
+      "required": ["source_id", "endpoint_or_repository", "immutable_revision", "record_path", "input_sha256", "input_bytes", "checked_at", "source_modified_at", "source_retrieved_at", "source_observed_at", "last_successful_watermark", "watermark", "notice_ids"],
       "properties": {
-        "start": {
-          "description": "Earliest represented timestamp.",
-          "type": "string",
-          "format": "date-time"
-        },
-        "end": {
-          "description": "Latest represented timestamp.",
-          "type": "string",
-          "format": "date-time"
-        }
+        "source_id": { "$ref": "#/$defs/safeId" },
+        "endpoint_or_repository": { "$ref": "#/$defs/httpsUrl" },
+        "immutable_revision": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/revision" }] },
+        "record_path": { "$ref": "#/$defs/relativePath" },
+        "input_sha256": { "$ref": "#/$defs/sha256" },
+        "input_bytes": { "type": "integer", "minimum": 1 },
+        "checked_at": { "$ref": "#/$defs/dateTime" },
+        "source_modified_at": { "$ref": "#/$defs/dateTime" },
+        "source_retrieved_at": { "$ref": "#/$defs/dateTime" },
+        "source_observed_at": { "$ref": "#/$defs/dateTime" },
+        "last_successful_watermark": { "$ref": "#/$defs/nonEmpty" },
+        "watermark": { "$ref": "#/$defs/watermark" },
+        "notice_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/safeId" } }
       }
     },
-    "provenance": {
-      "description": "Source-policy identity, source watermarks, notices, and reproducibility evidence for the release.",
+    "fieldLineage": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "source_policy",
-        "sources",
-        "notices",
-        "reproducibility"
-      ],
+      "required": ["table", "field", "source_id", "source_field", "provenance_required"],
       "properties": {
-        "source_policy": {
-          "$ref": "#/$defs/sourcePolicy"
-        },
-        "sources": {
-          "description": "Non-empty source acquisition records. Source ids must be unique.",
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": {
-            "$ref": "#/$defs/sourceRecord"
-          }
-        },
-        "notices": {
-          "description": "Non-empty licence and attribution notice catalogue. Notice ids must be unique.",
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": {
-            "$ref": "#/$defs/notice"
-          }
-        },
-        "reproducibility": {
-          "$ref": "#/$defs/reproducibility"
-        }
+        "table": { "$ref": "#/$defs/safeId" },
+        "field": { "$ref": "#/$defs/safeId" },
+        "source_id": { "$ref": "#/$defs/safeId" },
+        "source_field": { "$ref": "#/$defs/nonEmpty" },
+        "provenance_required": { "const": true }
       }
     },
-    "sourcePolicy": {
-      "description": "Exact source-policy document enforced by the release builder.",
+    "derivation": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "schema_version",
-        "sha256",
-        "path"
-      ],
+      "required": ["output_table", "output_field", "rule_id", "rule_version", "input_fields", "provenance_required"],
       "properties": {
-        "schema_version": {
-          "description": "Positive version of the source-policy schema.",
-          "type": "integer",
-          "minimum": 1
-        },
-        "sha256": {
-          "$ref": "#/$defs/sha256"
-        },
-        "path": {
-          "$ref": "#/$defs/relativePath"
-        }
+        "output_table": { "$ref": "#/$defs/safeId" },
+        "output_field": { "$ref": "#/$defs/safeId" },
+        "rule_id": { "$ref": "#/$defs/safeId" },
+        "rule_version": { "type": "integer", "minimum": 1 },
+        "input_fields": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/nonEmpty" } },
+        "provenance_required": { "const": true }
       }
     },
-    "sourceRecord": {
-      "description": "Pinned source acquisition and field-level policy evidence.",
+    "sourceCoverage": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "source_id",
-        "terms_reviewed_at",
-        "acquired_at",
-        "watermark",
-        "input_sha256",
-        "field_rules",
-        "notice_ref"
-      ],
+      "required": ["source_id", "state", "checked_at", "stale_at"],
       "properties": {
-        "source_id": {
-          "$ref": "#/$defs/safeId"
-        },
-        "terms_reviewed_at": {
-          "description": "Date on which the applicable source terms were reviewed.",
-          "type": "string",
-          "format": "date"
-        },
-        "acquired_at": {
-          "description": "UTC timestamp at which the pinned input was acquired.",
-          "type": "string",
-          "format": "date-time"
-        },
-        "watermark": {
-          "description": "Non-empty upstream cursor, revision, timestamp, or equivalent replay watermark.",
-          "type": "string",
-          "minLength": 1
-        },
-        "input_sha256": {
-          "$ref": "#/$defs/sha256"
-        },
-        "field_rules": {
-          "description": "Non-empty unique source-policy rule ids authorizing the published fields.",
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": {
-            "$ref": "#/$defs/nonEmptyString"
-          }
-        },
-        "notice_ref": {
-          "description": "Identifier of the matching entry in provenance.notices.",
-          "$ref": "#/$defs/safeId"
-        }
+        "source_id": { "$ref": "#/$defs/safeId" },
+        "state": { "enum": ["current", "stale", "unavailable"] },
+        "checked_at": { "$ref": "#/$defs/dateTime" },
+        "stale_at": { "$ref": "#/$defs/dateTime" }
       }
     },
-    "notice": {
-      "description": "Human-readable licence and attribution notice for one source.",
+    "capabilityCoverage": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "source_id",
-        "licence",
-        "attribution",
-        "terms_url"
-      ],
+      "required": ["capability_id", "state", "source_ids", "coverage_numerator", "coverage_denominator", "as_at"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/safeId"
-        },
-        "source_id": {
-          "$ref": "#/$defs/safeId"
-        },
-        "licence": {
-          "$ref": "#/$defs/nonEmptyString"
-        },
-        "attribution": {
-          "$ref": "#/$defs/nonEmptyString"
-        },
-        "terms_url": {
-          "$ref": "#/$defs/httpsUrl"
-        }
+        "capability_id": { "$ref": "#/$defs/safeId" },
+        "state": { "enum": ["supported", "partial", "unsupported", "unavailable", "stale"] },
+        "source_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/safeId" } },
+        "coverage_numerator": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 0 }] },
+        "coverage_denominator": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 0 }] },
+        "as_at": { "$ref": "#/$defs/dateTime" }
       }
     },
-    "reproducibility": {
-      "description": "Command and aggregate digests required to reproduce and compare the release.",
+    "coverage": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "build_command",
-        "inputs_digest_sha256",
-        "outputs_digest_sha256"
-      ],
+      "required": ["sources", "capabilities"],
       "properties": {
-        "build_command": {
-          "$ref": "#/$defs/nonEmptyString"
-        },
-        "inputs_digest_sha256": {
-          "$ref": "#/$defs/sha256"
-        },
-        "outputs_digest_sha256": {
-          "$ref": "#/$defs/sha256"
-        }
+        "sources": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/sourceCoverage" } },
+        "capabilities": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/capabilityCoverage" } }
       }
     }
   }

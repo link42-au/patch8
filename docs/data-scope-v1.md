@@ -62,18 +62,18 @@ Unknown sources, modes, fields, authorship, lineage, or licences fail closed. Th
 and authorizing rule. A transformation cannot broaden the source grant, and an aggregate or history row cannot contain a
 value that would be blocked in a current source row.
 
-`patch8_cvelist_v5` does not yet exist in [`licensing/source-policy.json`](licensing/source-policy.json). Before the
-builder fetches `CVEProject/cvelistV5` or emits any CVE Program-derived field, P3 must add and test an explicit enabled
-public-dataset rule backed by the CVE Program Terms of Use. At minimum that rule must separately allow:
+P3 registers `patch8_cvelist_v5` in [`licensing/source-policy.json`](licensing/source-policy.json) as an explicit enabled
+public-dataset rule backed by the CVE Program Terms of Use. The tested rule separately allows:
 
 - `dataVersion`;
 - `cveMetadata.cveId`, `state`, `datePublished`, `dateUpdated`, `assignerOrgId`, and `assignerShortName`;
 - `containers.cna.providerMetadata.orgId`, `shortName`, and `dateUpdated`; and
 - `containers.cna.descriptions[].lang` and `.value`.
 
-The rule must require the CVE/MITRE notice, an immutable repository commit, record path and blob/input SHA-256, and field
-lineage. Until it exists, descriptions are null and the UI reports description data unavailable. The builder must not
-copy a description from NVD and later claim that it was verified against CVE content.
+The rule requires the CVE/MITRE notice, an immutable repository commit, record path and blob/input SHA-256, and field
+lineage. P3 authorizes those inputs but does not fetch or emit them; descriptions remain unavailable until P4a implements
+and verifies the adapter. The builder must not copy a description from NVD and later claim that it was verified against
+CVE content.
 
 ## Canonical identity
 
@@ -125,8 +125,8 @@ extra field part of v1.
   `NVD-CWE-Other`, prose, and unparseable identifiers are not CWE associations.
 - Accepted applicability: vulnerable CPE 2.3 URI, match-criteria identifier when covered by policy, and the explicit
   configuration/node identity, `operator`, `negate`, `vulnerable`, match-criteria identifier, and all four explicit
-  start/end including/excluding version bounds. P3 must add any of those exact structural paths missing from the current
-  NVD machine allow-list before output. Patch8 preserves the Boolean configuration tree; a CPE observation is labelled
+  start/end including/excluding version bounds. P3 adds those exact structural paths to the closed NVD machine allow-list
+  before output. Patch8 preserves the Boolean configuration tree; a CPE observation is labelled
   “listed in NVD applicability” and is not presented as vendor confirmation.
 - Accepted references: HTTPS URL and NVD tags. The linked title, body, file, vendor comment, and attachment are not read
   or published.

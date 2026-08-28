@@ -10,10 +10,10 @@ the historical Worker/D1 service with a static SvelteKit application intended fo
 | Legacy interface restoration | **live-verified** | The historical Patch8 layout, dashboard, routes, components, brand assets, tokens, responsive behaviour, and current visible copy are locked by tests and deployed in [commit `1b932e3`](https://github.com/link42-au/patch8/commit/1b932e34). Future data work may make only minimal semantic copy/meta/disabled-control changes required for honest unavailable/partial/stale states, without route, layout, or visual redesign. |
 | Static Pages shell | **live-verified** | [Hosted run 33160759689](https://github.com/link42-au/patch8/actions/runs/33160759689) verified the restored legacy interface at [`link42-au.github.io/patch8/`](https://link42-au.github.io/patch8/). This status does not claim data-backed capability. |
 | DuckDB-Wasm data client | **in progress** | Synthetic query-routed Parquet, deterministic fixtures, prepared SQL, corrupt-current fallback, local Chromium/Firefox/Playwright WebKit, and immutable public-HF Chromium range proofs pass without changing the legacy UI. Actual desktop/mobile Safari, cache, and memory evidence remain incomplete; see [`docs/p2-duckdb-proof.md`](docs/p2-duckdb-proof.md). |
-| v1 data-content contract | **source-complete; not implemented** | [`docs/data-scope-v1.md`](docs/data-scope-v1.md) defines the authoritative sources, fields, provenance, conflicts, routing, freshness, retention, legacy coverage, and acceptance gates. |
+| v1 data and release contracts | **source-complete; ingestion not implemented** | [`docs/data-scope-v1.md`](docs/data-scope-v1.md) is implemented as closed source-policy, content-registry, manifest schemas, validator, 11 source-policy fixtures, and 34 manifest fixtures under [`contracts/`](contracts/). |
 | Patch8 dataset builder | **planned; not implemented** | An app-owned Python pipeline will normalize approved CVE Program, NVD, CISA KEV, CVE-linked GitHub Advisory Database, CISA Vulnrichment, and MITRE CWE fields. |
 | Public dataset | **P2 canary live-verified; release blocked** | The public, ungated Hugging Face dataset [`link42-au/patch`](https://huggingface.co/datasets/link42-au/patch) serves the synthetic P2 canary anonymously at manifest revision `aa4e13c4564924c12a16720d8bebe57208dfccdd`. It does not yet contain a verified Patch8 vulnerability release; the local full build and scoped publisher write/readback remain pending. |
-| FIRST EPSS | **disabled** | Direct display awaits a version-2 source-policy decision; dataset republication remains prohibited. |
+| FIRST EPSS | **disabled** | No Link42 fetch, cache, dataset, history, or republication is authorized by v1. |
 | OSV | **disabled for first release** | It awaits an enforceable home-database licence registry. |
 | AppThreat | **rejected for first release** | Record-level provenance and a supportable browser range-reader did not clear the release gates. |
 
@@ -29,9 +29,9 @@ package, software, report, and feed data cannot operate without that backend and
 - Static SvelteKit and TypeScript, built with `@sveltejs/adapter-static`.
 - Public GitHub Pages and public GitHub Actions.
 - An app-owned Python ingestion/build pipeline generates bounded, query-routed Parquet from rights-approved official
-  CVE Program, NVD, CISA KEV, CVE-linked GitHub Advisory Database, CISA Vulnrichment, and MITRE CWE fields. CVE Program
-  `cvelistV5` remains fail-closed until P3 adds its explicit machine-readable source rule; descriptions stay unavailable
-  before that gate passes.
+  CVE Program, NVD, CISA KEV, CVE-linked GitHub Advisory Database, CISA Vulnrichment, and MITRE CWE fields. P3 registers
+  the exact `cvelistV5` public-dataset rule; descriptions still stay unavailable until P4a implements and verifies the
+  commit-pinned adapter.
 - The first full build runs locally. Public Actions later run bounded source-change updates without accumulating one
   permanent Parquet file per day.
 - Public best-effort dataset storage at `link42-au/patch`, activated through an immutable revision manifest with
@@ -42,7 +42,7 @@ package, software, report, and feed data cannot operate without that backend and
   NVD key, Hugging Face write token in the browser, or other runtime secret.
 - No Link42-owned EPSS dataset, history, durable shared cache, or bulk export.
 - Every output must pass the source-rights two-key gate: an enabled public-dataset source rule and an allowed field rule.
-- Small copied schemas, synthetic fixtures, rights decisions, file locks, and attribution remain reviewable in Git.
+- App-owned schemas, synthetic fixtures, rights decisions, file locks, and attribution remain reviewable in Git.
 
 See [`docs/data-scope-v1.md`](docs/data-scope-v1.md) for the authoritative v1 data contract and [`PLAN.md`](PLAN.md) for
 the feature sequence, release protocol, publication blocker, acceptance tests, and rollback design.
@@ -67,12 +67,11 @@ needs an installed Chromium runtime; the Pages workflow installs it and runs bot
 
 ## Evidence carried into this repository
 
-- [`contracts/`](contracts/) retains the synthetic F3 manifest schema/fixtures and validator as historical integrity and
-  rollback evidence. P3 will replace it with the app-owned immutable Parquet release contract after the P2 browser
-  spike establishes practical query and partition budgets.
+- [`contracts/`](contracts/) contains the P3 app-owned source-policy, content, and immutable Parquet manifest contracts
+  plus 45 synthetic positive/fail-closed fixtures. These are source evidence, not a built or published v1 dataset.
 - [`docs/licensing/patch8.md`](docs/licensing/patch8.md) and
-  [`docs/licensing/source-policy.json`](docs/licensing/source-policy.json) are the copied F2 rights evidence. The JSON is
-  the full Link42 v1 registry; Patch8 consumes only entries whose `product` is `patch8`.
+  [`docs/licensing/source-policy.json`](docs/licensing/source-policy.json) are the Patch8 rights evidence and closed
+  public-dataset registry.
 - [`docs/upstreams/patch8-direct-apis.md`](docs/upstreams/patch8-direct-apis.md) records the F5 source-selection evidence.
 - [`docs/attribution.md`](docs/attribution.md) records notices that apply to the P1 shell and planned first-release data.
 

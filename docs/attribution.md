@@ -1,11 +1,18 @@
 # Attribution and notices
 
-Status: source-complete P1 notice bundle. The application sources below are planned and not queried by P1.
+Status: source-complete P3 notice bundle. The application sources below are policy-registered but not yet queried.
 
 ## Patch8 software
 
 Patch8 is copyright its contributors and licensed under AGPL-3.0-or-later. There is no warranty, to the extent permitted
 by law. The corresponding source is the public `link42-au/patch8` repository.
+
+## CVE Program
+
+Planned canonical CVE identity/state/date and English CNA description fields come only from the official
+`CVEProject/cvelistV5` repository at an immutable commit. Each value retains its record path, hash, provider lineage,
+and the CVE/MITRE notice required by the [CVE Terms of Use](https://www.cve.org/Legal/TermsOfUse). Link42 identifies its
+normalization and does not imply CVE Program or MITRE endorsement.
 
 ## NIST National Vulnerability Database
 
@@ -14,7 +21,7 @@ and distinguish Link42 presentation from upstream content. The required product 
 
 > This product uses data from the NVD API but is not endorsed or certified by the NVD.
 
-CVE Record content retains the CVE Program/MITRE notice described by the copied Patch8 licence register. Vendor or other
+CVE Record content retains the CVE Program/MITRE notice described by the Patch8 licence register. Vendor or other
 third-party content is not cleared merely because it appears in NVD.
 
 ## CISA Known Exploited Vulnerabilities

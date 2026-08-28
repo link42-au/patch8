@@ -1,10 +1,10 @@
 # Patch8 licence and redistribution register
 
-Date: 2026-08-28
+Date: 2026-08-29
 
-Scope: Feature F2, Patch8 upstream candidates identified in `docs/inventory/patch8.md`
+Scope: Patch8 v1 public-dataset source and field policy
 
-Status: source-complete research register; this is an engineering publication policy, not legal advice
+Status: source-complete P3 engineering publication policy; not legal advice
 
 ## Decision rule
 
@@ -21,18 +21,12 @@ The register uses four decisions:
 
 This register does not rely on fair use or an assumption that a database has no protectable rights. Identifiers, dates, numeric scores, product names, package coordinates, version bounds, and URLs are generally factual, but contract terms, foreign copyright, database rights, trademarks, and rights in the selection or arrangement can still matter. The applicable source grant and provenance must therefore travel with every published field.
 
-### Direct display and dataset publication are separate modes
+### Public dataset mode is closed
 
-The approved EPSS product decision is narrower than dataset publication: Patch8 may eventually make one on-demand FIRST API request for the CVE the user is viewing and display only that current CVE's score, percentile, score date, and model version for preventative cybersecurity. The UI must show the required attribution and explain that EPSS is a forecast, not severity or a complete risk score. Link42 will not ingest EPSS, build or host an EPSS database, keep a durable shared cache, expose the raw response, offer bulk/history export, or rehost FIRST data.
-
-Version 1 of `source-policy.json` has only one source-wide `decision`, `enabled`, `publication_mode`, and `allowed_fields` gate. It cannot safely authorize browser display while independently blocking public-dataset republication. The machine policy therefore keeps FIRST EPSS disabled and fail-closed; this Markdown approval alone does not enable a request adapter.
-
-Before direct display can be implemented, a version 2 policy and validator must add a required, closed `use_modes` object to every source. It must contain independently evaluated `browser_direct_display` and `public_dataset_republication` entries, each with its own `decision`, `enabled`, `allowed_fields`, `blocked_artifacts`, retention, and notice requirements. Every caller must supply a known mode; a missing or unknown mode must fail closed. For FIRST EPSS, version 2 must encode:
-
-- `browser_direct_display`: allow one requested CVE's current `cve`, `epss`, `percentile`, score `date`, and `model_version`; require FIRST/Empirical Security attribution; permit only transient in-memory request coalescing; block durable browser/shared caching, raw-response display or logging, history, bulk query, export, and rehosting.
-- `public_dataset_republication`: conditional and disabled with no allowed fields; block normalized current/history tables, raw responses/CSV, manifests or dataset-card source claims, exports, and any Link42-hosted EPSS artifact unless separate written republication permission and downstream-notice handling are recorded.
-
-Until that schema, validator, adapter tests, and UI notice tests exist, `patch8_first_epss.enabled` remains `false`. OSV also remains disabled under its separate home-database licence-registry blocker.
+P3's machine policy has one named use mode: `public_dataset_republication`. Every allowed source explicitly names that
+mode; every blocked or excluded source has no allowed modes or fields. Unknown source, field, mode, authorship, or lineage
+fails closed. FIRST EPSS is not fetched, cached, republished, or exposed by this contract. OSV, EUVD, MSRC, and Cisco are
+also absent from v1 output.
 
 ### United States government and embedded third-party material
 
@@ -51,13 +45,14 @@ Government origin alone is never the rule used to publish a third-party descript
 
 | Source | Decision | Default ingestion state | Public dataset core |
 |---|---|---:|---|
+| CVE Program `cvelistV5` | **ALLOW** | enabled | Canonical CVE identity/state/dates and English CNA descriptions with immutable commit, record path, hash, provider lineage, and CVE/MITRE notice |
 | NVD API 2.0 | **ALLOW** | enabled | NIST analysis and structured facts; CVE-derived text only with verified CVE lineage and CVE notice |
 | CISA KEV | **ALLOW** | enabled | Complete normalized KEV fields under CC0; raw mirror unnecessary |
-| FIRST EPSS | **CONDITIONAL** | disabled | None. Dataset republication remains blocked; the separately approved on-demand display mode still awaits the version 2 machine-policy extension above. |
+| FIRST EPSS | **BLOCK** | disabled | None. Patch8 does not build, cache, or republish EPSS. |
 | CISA Vulnrichment | **ALLOW** | enabled | CISA ADP SSVC/CVSS/CWE enrichment and its history; do not use it as a second full CVE mirror |
-| OSV | **CONDITIONAL** | disabled | Only fields from home databases on an explicit per-database licence allow-list |
+| OSV | **EXCLUDE** | disabled | None in v1 |
 | GitHub Security Advisory Database | **ALLOW** | enabled | Advisory fields under CC BY 4.0 with record-level attribution and modification notice |
-| ENISA EUVD | **CONDITIONAL** | enabled only for ENISA-owned fields | EUVD/CVE mappings, ENISA identifiers/dates, and references; third-party text and scores denied by default |
+| ENISA EUVD | **EXCLUDE** | disabled | None in v1 |
 | Microsoft MSRC CVRF/CSAF | **BLOCK** | disabled | Link to the official MSRC source only; no MSRC-derived catalogue rows |
 | MITRE CWE | **ALLOW** | enabled | CWE identifiers, names, descriptions, relationships, status, history, and reference metadata with MITRE notice |
 | Cisco PSIRT | **EXCLUDE** | absent | No fields in the first release |
@@ -405,9 +400,13 @@ NVD carries CVE Program and other third-party material. CVE Record content has a
 - [Cisco API Licence Terms and Conditions](https://developer.cisco.com/site/license/cisco-api-license/)
 - [Cisco PSIRT API terms pointer](https://github.com/CiscoPSIRT/openVulnAPI/blob/master/LICENSE.md)
 
-## Machine-enforceable allow-list and version 2 recommendation
+## Superseded F2 implementation sketch
 
-`source-policy.json` version 1 is the current enforcement authority and remains fail-closed for FIRST EPSS. The following summary records its source rules plus the normative version 2 `planned_use_modes` extension required before direct EPSS display. The future implementation must validate the extension against a closed schema and reject unknown sources, modes, fields, conditions, and licence versions.
+The YAML and test list below are retained only as historical F2 research context. They are not normative and use old
+source identifiers and broad field groups. P3 replaced them with the closed
+[`source-policy.json`](source-policy.json), [`source-policy.schema.json`](../../contracts/source-policy.schema.json),
+[`data-content-v1.json`](../../contracts/data-content-v1.json), and tested Patch8 manifest contract. Implementations must
+use those machine files and their exact `patch8_*` source identifiers; no direct EPSS mode is approved.
 
 ```yaml
 policy_version: 1
@@ -607,4 +606,6 @@ The F1 Patch8 inventory named ten upstream candidates. All ten are covered here:
 - MITRE CWE; and
 - Cisco PSIRT, explicitly excluded from the first release.
 
-This register also resolves the F1 raw-archive gap: historical R2-style archiving is not carried forward. Public raw payload publication is fail-closed, and private short-lived build retention is source-specific. P2 must treat this file as a dependency when defining canonical schemas and must not add a source or field outside this register without an F2 amendment.
+This register also resolves the F1 raw-archive gap: historical R2-style archiving is not carried forward. Public raw
+payload publication is fail-closed, and private short-lived build retention is source-specific. P3's machine contracts
+enforce this register. Later features must not add a source or field without an approved policy/contract version change.
