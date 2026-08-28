@@ -9,7 +9,10 @@
     "dev": "vite dev",
     "fixtures:build": "node scripts/build-p2-fixtures.mjs",
     "fixtures:check": "node scripts/build-p2-fixtures.mjs --check",
+    "hf:p2:finalize": "node scripts/build-p2-hf-release.mjs finalize",
+    "hf:p2:prepare": "node scripts/build-p2-hf-release.mjs prepare",
     "proof:build": "vite build --config vite.p2.config.ts",
+    "proof:hf:build": "vite build --config vite.p2-hf.config.ts",
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"

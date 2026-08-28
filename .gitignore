@@ -2,6 +2,8 @@ node_modules/
 .svelte-kit/
 apps/web/build/
 apps/web/.p2-proof/
+apps/web/.p2-hf-proof/
+.p2-hf-release/
 playwright-report/
 test-results/
 .DS_Store

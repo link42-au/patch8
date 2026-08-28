@@ -27,7 +27,19 @@ const walk = async (directory) => {
   const entries = await readdir(directory, { withFileTypes: true });
   const paths = [];
   for (const entry of entries) {
-    if ([".git", ".svelte-kit", "build", "node_modules", "playwright-report", "test-results"].includes(entry.name)) {
+    if (
+      [
+        ".git",
+        ".p2-hf-proof",
+        ".p2-hf-release",
+        ".p2-proof",
+        ".svelte-kit",
+        "build",
+        "node_modules",
+        "playwright-report",
+        "test-results",
+      ].includes(entry.name)
+    ) {
       continue;
     }
     const url = new URL(`${entry.name}${entry.isDirectory() ? "/" : ""}`, directory);

@@ -27,7 +27,7 @@ const artifactUrls: Record<string, string> = {
   "previous-vulnerabilities-2026-10.parquet": previousVulnerabilities10Url,
 };
 
-class BrowserDuckDbRuntime implements P2SqlRuntime {
+export class BrowserDuckDbRuntime implements P2SqlRuntime {
   private readonly worker = new Worker(mvpWorker);
   private readonly db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), this.worker);
   private connection: duckdb.AsyncDuckDBConnection | null = null;

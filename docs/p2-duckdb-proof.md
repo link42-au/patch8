@@ -25,6 +25,10 @@ Svelte component, DOM contract, CSS, visible copy, or production data source cha
   in each local/hosted run and fails above 131,072 aggregate bytes.
 - The Chromium request audit rejects `/api/`, authorization headers, and every non-site runtime request. DuckDB Wasm,
   its worker, the Parquet extension, and Parquet files are all served from the proof origin.
+- A deterministic, ignored-output, synthetic-only Hugging Face bundle and manifest-last handoff are source-ready. The
+  optional real-browser proof pins immutable data/manifest revisions and checks anonymous CORS, HTTP 206 ranges,
+  partial DuckDB reads, route/byte budgets, and previous-good fallback. See
+  [`p2-hf-publication.md`](p2-hf-publication.md).
 
 ## Incomplete acceptance
 
