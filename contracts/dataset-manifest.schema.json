@@ -272,25 +272,32 @@
     "fieldLineage": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["table", "field", "source_id", "source_field", "provenance_required"],
+      "required": ["table", "field", "source_id", "source_field", "transformation_id", "notice_ids", "pointer_semantics", "provenance_required"],
       "properties": {
         "table": { "$ref": "#/$defs/safeId" },
         "field": { "$ref": "#/$defs/safeId" },
         "source_id": { "$ref": "#/$defs/safeId" },
         "source_field": { "$ref": "#/$defs/nonEmpty" },
+        "transformation_id": { "const": "source_normalize_v1" },
+        "notice_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/safeId" } },
+        "pointer_semantics": { "const": "source_value" },
         "provenance_required": { "const": true }
       }
     },
     "derivation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["output_table", "output_field", "rule_id", "rule_version", "input_fields", "provenance_required"],
+      "required": ["output_table", "output_field", "rule_id", "rule_version", "transformation_id", "input_fields", "source_ids", "notice_ids", "pointer_semantics", "provenance_required"],
       "properties": {
         "output_table": { "$ref": "#/$defs/safeId" },
         "output_field": { "$ref": "#/$defs/safeId" },
         "rule_id": { "$ref": "#/$defs/safeId" },
         "rule_version": { "type": "integer", "minimum": 1 },
-        "input_fields": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/nonEmpty" } },
+        "transformation_id": { "$ref": "#/$defs/safeId" },
+        "input_fields": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/nonEmpty" } },
+        "source_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/safeId" } },
+        "notice_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/safeId" } },
+        "pointer_semantics": { "enum": ["constant", "derived_value", "observation_identity", "observation_pointer", "provenance_pointer", "derivation_pointer", "source_identity"] },
         "provenance_required": { "const": true }
       }
     },

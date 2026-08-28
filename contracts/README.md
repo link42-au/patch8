@@ -2,8 +2,9 @@
 
 Status: **P3 source-complete; no ingestion or production dataset implemented**.
 
-- [`data-content-v1.json`](data-content-v1.json) closes the v1 source, table/read-model, capability, freshness, notice,
-  and blocked-token sets defined by [`docs/data-scope-v1.md`](../docs/data-scope-v1.md).
+- [`data-content-v1.json`](data-content-v1.json) closes the v1 source, exact ordered field/type/nullability and table-key,
+  output-lineage/derivation, capability dependency, freshness, notice, and blocked-token sets defined by
+  [`docs/data-scope-v1.md`](../docs/data-scope-v1.md).
 - [`source-policy.schema.json`](source-policy.schema.json) validates the app-owned public-dataset rights registry at
   [`docs/licensing/source-policy.json`](../docs/licensing/source-policy.json). Unknown source, field, use mode,
   authorship, and lineage default to block.
@@ -12,7 +13,7 @@ Status: **P3 source-complete; no ingestion or production dataset implemented**.
   snapshots, field lineage, derivations, and explicit source/capability coverage.
 - [`fixtures/source-policy.cases.json`](fixtures/source-policy.cases.json) and
   [`fixtures/dataset-manifest.cases.json`](fixtures/dataset-manifest.cases.json) exercise valid contracts and their
-  fail-closed boundaries.
+  fail-closed boundaries (19 source-policy cases and 56 manifest cases).
 
 Validate the policy, schemas, and fixtures with:
 

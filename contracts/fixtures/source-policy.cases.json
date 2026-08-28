@@ -9,7 +9,7 @@
     {
       "name": "reject an unregistered cvelistV5 source",
       "mutations": [{ "operation": "delete", "path": "/sources/0" }],
-      "expected_error_codes": ["CVELIST_RULE_INVALID", "SOURCE_FIELDS_MISSING", "SOURCE_GATE_INCOMPLETE", "SOURCE_NOTICE_MISSING", "SOURCE_NOT_ENABLED", "SOURCE_REGISTRY_MISMATCH"]
+      "expected_error_codes": ["CVELIST_RULE_INVALID", "SOURCE_FIELDS_MISSING", "SOURCE_GATE_INCOMPLETE", "SOURCE_NOTICE_MISSING", "SOURCE_NOT_ENABLED", "SOURCE_POLICY_WIDENED", "SOURCE_REGISTRY_MISMATCH"]
     },
     {
       "name": "reject an unknown source identifier",
@@ -19,17 +19,22 @@
     {
       "name": "reject a cvelistV5 rule without the official Downloads evidence",
       "mutations": [{ "operation": "delete", "path": "/sources/0/official_terms_urls/1" }],
-      "expected_error_codes": ["CVELIST_RULE_INVALID"]
+      "expected_error_codes": ["CVELIST_RULE_INVALID", "SOURCE_POLICY_WIDENED"]
     },
     {
       "name": "reject a cvelistV5 rule with a broadened field",
       "mutations": [{ "operation": "set", "path": "/sources/0/allowed_fields/0", "value": "containers.cna.affected.*" }],
-      "expected_error_codes": ["CVELIST_RULE_INVALID"]
+      "expected_error_codes": ["CVELIST_RULE_INVALID", "SOURCE_POLICY_WIDENED"]
     },
     {
       "name": "reject NVD when an exact configuration structural field is absent",
       "mutations": [{ "operation": "delete", "path": "/sources/1/allowed_fields/14" }],
-      "expected_error_codes": ["NVD_STRUCTURE_RULE_INCOMPLETE"]
+      "expected_error_codes": ["NVD_STRUCTURE_RULE_INCOMPLETE", "SOURCE_POLICY_WIDENED"]
+    },
+    {
+      "name": "reject treating Link42 configuration identity as a raw NVD field",
+      "mutations": [{ "operation": "set", "path": "/sources/1/allowed_fields/28", "value": "nvd.configuration.configuration_id" }],
+      "expected_error_codes": ["NVD_STRUCTURE_RULE_INCOMPLETE", "SOURCE_POLICY_WIDENED"]
     },
     {
       "name": "reject enabling FIRST EPSS",
@@ -49,12 +54,47 @@
     {
       "name": "reject raw cvelistV5 publication",
       "mutations": [{ "operation": "set", "path": "/sources/0/raw_publication", "value": true }],
-      "expected_error_codes": ["SOURCE_GATE_INCOMPLETE", "SOURCE_POLICY_STRUCTURE_INVALID"]
+      "expected_error_codes": ["SOURCE_GATE_INCOMPLETE", "SOURCE_POLICY_STRUCTURE_INVALID", "SOURCE_POLICY_WIDENED"]
     },
     {
       "name": "reject an unknown public use mode",
       "mutations": [{ "operation": "set", "path": "/use_mode", "value": "browser_direct_display" }],
       "expected_error_codes": ["SOURCE_NOT_ENABLED", "SOURCE_POLICY_STRUCTURE_INVALID"]
+    },
+    {
+      "name": "reject widening GHSA with a raw source field",
+      "mutations": [{ "operation": "set", "path": "/sources/4/allowed_fields/19", "value": "source_raw" }],
+      "expected_error_codes": ["SOURCE_POLICY_WIDENED"]
+    },
+    {
+      "name": "reject disabling immutable revision enforcement for GHSA",
+      "mutations": [{ "operation": "set", "path": "/sources/4/immutable_revision_required", "value": false }],
+      "expected_error_codes": ["SOURCE_POLICY_WIDENED"]
+    },
+    {
+      "name": "reject changing the reviewed GHSA repository",
+      "mutations": [{ "operation": "set", "path": "/sources/4/repository", "value": "https://example.invalid/evil" }],
+      "expected_error_codes": ["SOURCE_POLICY_WIDENED"]
+    },
+    {
+      "name": "reject changing the reviewed GHSA source locator",
+      "mutations": [{ "operation": "set", "path": "/sources/4/source_locator", "value": "https://example.invalid/evil" }],
+      "expected_error_codes": ["SOURCE_POLICY_WIDENED"]
+    },
+    {
+      "name": "reject removing a reviewed blocked GHSA artifact",
+      "mutations": [{ "operation": "delete", "path": "/sources/4/blocked_artifacts/2" }],
+      "expected_error_codes": ["SOURCE_POLICY_WIDENED"]
+    },
+    {
+      "name": "reject changing required GHSA notices",
+      "mutations": [{ "operation": "set", "path": "/sources/4/required_notice_ids/0", "value": "notice.cve_program" }],
+      "expected_error_codes": ["SOURCE_POLICY_WIDENED"]
+    },
+    {
+      "name": "reject broadening GHSA publication mode",
+      "mutations": [{ "operation": "set", "path": "/sources/4/publication_mode", "value": "raw_and_normalized" }],
+      "expected_error_codes": ["SOURCE_POLICY_WIDENED"]
     }
   ]
 }

@@ -123,10 +123,12 @@ extra field part of v1.
   proven CVE lineage and are otherwise rejected.
 - Accepted weakness data: normalized `CWE-N` identifiers from NVD weakness descriptions; `NVD-CWE-noinfo`,
   `NVD-CWE-Other`, prose, and unparseable identifiers are not CWE associations.
-- Accepted applicability: vulnerable CPE 2.3 URI, match-criteria identifier when covered by policy, and the explicit
-  configuration/node identity, `operator`, `negate`, `vulnerable`, match-criteria identifier, and all four explicit
-  start/end including/excluding version bounds. P3 adds those exact structural paths to the closed NVD machine allow-list
-  before output. Patch8 preserves the Boolean configuration tree; a CPE observation is labelled
+- Accepted applicability: vulnerable CPE 2.3 URI, match-criteria identifier when covered by policy, the exact raw
+  configuration/node structure, `operator`, `negate`, `vulnerable`, match-criteria identifier, and all four explicit
+  start/end including/excluding version bounds. P3 adds only those upstream structural paths to the closed NVD machine
+  allow-list. `configuration_id`, `node_id`, and `parent_node_id` are Link42-derived stable identities made from the
+  pinned source path/index; they are not NVD fields and must appear in the closed derivation ledger before output.
+  Patch8 preserves the Boolean configuration tree; a CPE observation is labelled
   “listed in NVD applicability” and is not presented as vendor confirmation.
 - Accepted references: HTTPS URL and NVD tags. The linked title, body, file, vendor comment, and attachment are not read
   or published.

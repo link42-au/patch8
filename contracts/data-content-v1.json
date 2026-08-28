@@ -9,6 +9,14 @@
     "patch8_cisa_vulnrichment",
     "patch8_mitre_cwe"
   ],
+  "source_requirements": {
+    "patch8_cvelist_v5": {"source_locator": "https://github.com/CVEProject/cvelistV5", "watermark_kind": "git_commit", "policy_source_sha256": "41efe32ca20f4daee532f215b89884ac8a7fbe6f6a62d62bdac3b8bc37a88af2"},
+    "patch8_nvd": {"source_locator": "https://services.nvd.nist.gov/rest/json/cves/2.0", "watermark_kind": "api_window", "policy_source_sha256": "d846ab1b04cc9a9b408c4ac9214e113cd4c0970a5a53a9c570be4ebd5036ab7a"},
+    "patch8_cisa_kev": {"source_locator": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json", "watermark_kind": "catalogue_version", "policy_source_sha256": "6d30d61b7562d2d332266e534bce97f87dcf810dea7c9fe5a1474c864c179c50"},
+    "patch8_github_advisory_database": {"source_locator": "https://github.com/github/advisory-database", "watermark_kind": "git_commit", "policy_source_sha256": "4ce8cddd98d1b6aaf65b1527cd04c561b299bd71f5d20e13607ddfd06ec86d6c"},
+    "patch8_cisa_vulnrichment": {"source_locator": "https://github.com/cisagov/vulnrichment", "watermark_kind": "git_commit", "policy_source_sha256": "9e9823076007a8354475417e6bc6ed0e7aad3f3ecdc98ef266b5453e4b89a548"},
+    "patch8_mitre_cwe": {"source_locator": "https://cwe.mitre.org/data/xml/cwec_latest.xml.zip", "watermark_kind": "archive_version", "policy_source_sha256": "0d2c823a53ffbd9a22a3302011a5bfb37ab999252aca7bd04df4602572fee96d"}
+  },
   "forbidden_source_ids": [
     "patch8_first_epss",
     "patch8_osv",
@@ -45,6 +53,161 @@
     "kev_current": ["cve_id", "kev_observation_id", "date_added", "due_date", "vendor_project", "product", "known_ransomware_campaign_use", "derivation_id", "schema_version"],
     "cwe_by_vulnerability": ["cve_id", "cwe_id", "weakness_observation_id", "cwe_catalog_observation_id", "name", "description", "derivation_id", "schema_version"]
   },
+  "default_field_type": "UTF8",
+  "field_type_groups": {
+    "BOOLEAN": ["in_kev", "is_current", "negate", "vulnerable"],
+    "INT32": ["affected_index", "alias_index", "cve_bucket", "cve_year", "event_index", "published_month", "published_year", "range_index", "rank_class", "rights_policy_schema_version", "rule_version", "schema_version", "schema_version_seen", "table_schema_version", "version_index"],
+    "INT64": ["complete_input_bytes", "coverage_denominator", "coverage_numerator", "package_count", "software_count", "source_count", "source_record_bytes"],
+    "DOUBLE": ["base_score", "cvss_score"],
+    "DATE": ["catalog_released_at", "date_added", "due_date", "kev_date_added", "kev_due_date"],
+    "TIMESTAMP_MICROS": ["checked_at", "coverage_as_at", "dataset_built_at", "decision_at", "last_modified", "last_observed_at", "last_success_at", "manifest_activated_at", "modified_at", "observed_at", "published_at", "source_event_at", "source_modified_at", "source_observed_at", "source_published_at", "source_retrieved_at", "stale_at", "window_end", "window_start", "withdrawn_at"],
+    "LIST<UTF8>": ["cwe_ids", "input_observation_ids", "required_notice_ids", "source_ids", "tags"],
+    "LIST<STRUCT<url:UTF8,type:UTF8?>>": ["references"],
+    "LIST<STRUCT<name:UTF8,contact:LIST<UTF8>,type:LIST<UTF8>>>": ["credits"],
+    "LIST<STRUCT<nature:UTF8,target_cwe_id:UTF8,view_id:UTF8?,ordinal:INT32?>>": ["relationships"],
+    "LIST<STRUCT<kind:UTF8,class:UTF8?,name:UTF8,prevalence:UTF8?>>": ["applicable_platforms"],
+    "LIST<STRUCT<scope:LIST<UTF8>,impact:LIST<UTF8>,likelihood:UTF8?,note:UTF8?>>": ["consequences"],
+    "LIST<STRUCT<method_id:UTF8?,method:UTF8,description:UTF8?,effectiveness:UTF8?>>": ["detection_methods"],
+    "LIST<STRUCT<phase:LIST<UTF8>,description:UTF8,effectiveness:UTF8?>>": ["mitigations"],
+    "LIST<STRUCT<type:UTF8,note:UTF8>>": ["notes"],
+    "LIST<STRUCT<reference_id:UTF8?,url:UTF8?,title:UTF8?,authors:LIST<UTF8>>>": ["external_references"],
+    "LIST<STRUCT<event_type:UTF8,event_date:DATE?,version:UTF8?,details:UTF8?>>": ["content_history"],
+    "LIST<STRUCT<range_index:INT32,range_type:UTF8,range_repo:UTF8?,events:LIST<STRUCT<event_index:INT32,event_type:UTF8,event_value:UTF8>>>>": ["ranges"],
+    "LIST<STRUCT<version_index:INT32,version:UTF8>>": ["explicit_versions"]
+  },
+  "field_type_overrides": {
+    "kev_observations.notes": "UTF8"
+  },
+  "nullable_fields": {
+    "vulnerabilities": ["published_at", "published_observation_id", "modified_at", "modified_observation_id", "description", "description_observation_id", "severity", "cvss_score", "cvss_vector", "cvss_version", "cvss_observation_id", "in_kev", "kev_observation_id", "kev_date_added", "kev_due_date", "kev_ransomware_use", "ssvc_exploitation", "ssvc_automatable", "ssvc_technical_impact", "ssvc_observation_id", "package_count", "package_count_derivation_id", "software_count", "software_count_derivation_id"],
+    "descriptions": ["provider_short_name", "source_published_at", "source_modified_at"],
+    "cvss_observations": ["metric_type", "source_modified_at"],
+    "weakness_observations": ["metric_author", "source_modified_at"],
+    "references": ["source_modified_at"],
+    "affected_software": ["parent_node_id", "match_criteria_id", "version", "version_start_including", "version_start_excluding", "version_end_including", "version_end_excluding", "source_modified_at"],
+    "ghsa_advisories": ["published_at", "modified_at", "withdrawn_at", "summary", "details", "qualitative_severity"],
+    "ghsa_cve_aliases": [],
+    "ghsa_affected_packages": ["package_url"],
+    "ghsa_package_ranges": ["range_repo"],
+    "ghsa_range_events": [],
+    "ghsa_explicit_versions": [],
+    "kev_observations": ["notes"],
+    "ssvc_observations": ["decision_at", "source_modified_at"],
+    "cwe_catalog": ["abstraction", "extended_description"],
+    "provenance": ["source_published_at", "source_modified_at", "author_or_provider", "modification_note"],
+    "source_snapshots": ["immutable_revision", "source_version", "catalog_version", "schema_version_seen", "etag", "last_modified", "window_start", "window_end"],
+    "derivations": [],
+    "change_events": ["old_observation_id", "new_observation_id", "old_value_hash", "new_value_hash", "source_event_at"],
+    "source_status": ["source_snapshot_id", "source_modified_at", "last_success_at", "last_successful_watermark", "source_version", "immutable_revision", "manifest_activated_at", "error_class"],
+    "capability_status": ["coverage_numerator", "coverage_denominator", "coverage_as_at", "manifest_activated_at", "stale_at"],
+    "vulnerability_recent": ["published_at", "description", "severity", "cvss_score", "selected_observation_id"],
+    "vulnerability_search_terms": ["selected_observation_id"],
+    "software_product_vulnerabilities": ["version", "version_start_including", "version_start_excluding", "version_end_including", "version_end_excluding"],
+    "package_vulnerabilities": ["package_url"],
+    "kev_current": [],
+    "cwe_by_vulnerability": []
+  },
+  "table_keys": {
+    "vulnerabilities": {"primary_key": ["cve_id"], "sort_keys": ["cve_id"]},
+    "descriptions": {"primary_key": ["observation_id"], "sort_keys": ["cve_id", "lang", "observation_id"]},
+    "cvss_observations": {"primary_key": ["observation_id"], "sort_keys": ["cve_id", "cvss_version", "source_id", "observation_id"]},
+    "weakness_observations": {"primary_key": ["observation_id"], "sort_keys": ["cve_id", "cwe_id", "source_id", "observation_id"]},
+    "references": {"primary_key": ["observation_id"], "sort_keys": ["cve_id", "url", "source_id", "observation_id"]},
+    "affected_software": {"primary_key": ["observation_id"], "sort_keys": ["cve_id", "configuration_id", "node_id", "cpe_uri", "observation_id"]},
+    "ghsa_advisories": {"primary_key": ["observation_id"], "sort_keys": ["ghsa_id", "observation_id"]},
+    "ghsa_cve_aliases": {"primary_key": ["observation_id"], "sort_keys": ["ghsa_id", "alias_index", "cve_id"]},
+    "ghsa_affected_packages": {"primary_key": ["observation_id"], "sort_keys": ["ghsa_id", "affected_index"]},
+    "ghsa_package_ranges": {"primary_key": ["observation_id"], "sort_keys": ["ghsa_id", "affected_index", "range_index"]},
+    "ghsa_range_events": {"primary_key": ["observation_id"], "sort_keys": ["ghsa_id", "affected_index", "range_index", "event_index"]},
+    "ghsa_explicit_versions": {"primary_key": ["observation_id"], "sort_keys": ["ghsa_id", "affected_index", "version_index"]},
+    "kev_observations": {"primary_key": ["observation_id"], "sort_keys": ["date_added", "cve_id", "observation_id"]},
+    "ssvc_observations": {"primary_key": ["observation_id"], "sort_keys": ["cve_id", "source_modified_at", "observation_id"]},
+    "cwe_catalog": {"primary_key": ["observation_id"], "sort_keys": ["cwe_id", "observation_id"]},
+    "provenance": {"primary_key": ["provenance_id"], "sort_keys": ["source_id", "source_record_path", "provenance_id"]},
+    "source_snapshots": {"primary_key": ["source_snapshot_id"], "sort_keys": ["source_id", "source_snapshot_id"]},
+    "derivations": {"primary_key": ["derivation_id"], "sort_keys": ["output_table", "output_key", "output_field", "derivation_id"]},
+    "change_events": {"primary_key": ["event_id"], "sort_keys": ["observed_at", "entity_id", "field_path", "event_id"]},
+    "source_status": {"primary_key": ["source_id"], "sort_keys": ["source_id"]},
+    "capability_status": {"primary_key": ["capability_id"], "sort_keys": ["capability_id"]},
+    "vulnerability_recent": {"primary_key": ["cve_id"], "sort_keys": ["published_at", "cve_id"]},
+    "vulnerability_search_terms": {"primary_key": ["term", "term_kind", "cve_id"], "sort_keys": ["term", "rank_class", "cve_id"]},
+    "software_product_vulnerabilities": {"primary_key": ["cve_id", "affected_observation_id"], "sort_keys": ["vendor", "product", "cve_id"]},
+    "package_vulnerabilities": {"primary_key": ["cve_id", "ghsa_id", "affected_index"], "sort_keys": ["ecosystem", "package_name", "cve_id", "ghsa_id"]},
+    "kev_current": {"primary_key": ["cve_id"], "sort_keys": ["date_added", "cve_id"]},
+    "cwe_by_vulnerability": {"primary_key": ["cve_id", "cwe_id", "weakness_observation_id"], "sort_keys": ["cve_id", "cwe_id"]}
+  },
+  "source_field_bindings": {
+    "descriptions": {
+      "source_id": "patch8_cvelist_v5",
+      "fields": {"cve_id": "cveMetadata.cveId", "lang": "containers.cna.descriptions[].lang", "description": "containers.cna.descriptions[].value", "provider_org_id": "containers.cna.providerMetadata.orgId", "provider_short_name": "containers.cna.providerMetadata.shortName", "source_published_at": "cveMetadata.datePublished", "source_modified_at": "cveMetadata.dateUpdated"}
+    },
+    "cvss_observations": {
+      "source_id": "patch8_nvd",
+      "fields": {"cve_id": "cve.id", "metric_author": "nvd.cvss.source", "metric_type": "nvd.cvss.type", "cvss_version": "nvd.cvss.cvssData.version", "vector": "nvd.cvss.cvssData.vectorString", "base_score": "nvd.cvss.cvssData.baseScore", "base_severity": "nvd.cvss.cvssData.baseSeverity", "source_modified_at": "cve.lastModified"}
+    },
+    "weakness_observations": {
+      "source_id": "patch8_nvd",
+      "fields": {"cve_id": "cve.id", "cwe_id": "nvd.weakness.cwe_id", "source_modified_at": "cve.lastModified"}
+    },
+    "references": {
+      "source_id": "patch8_nvd",
+      "fields": {"cve_id": "cve.id", "url": "nvd.reference.url", "tags": "nvd.reference.tags", "source_modified_at": "cve.lastModified"}
+    },
+    "affected_software": {
+      "source_id": "patch8_nvd",
+      "fields": {"cve_id": "cve.id", "operator": "cve.configurations[].nodes[].operator", "negate": "cve.configurations[].nodes[].negate", "vulnerable": "cve.configurations[].nodes[].cpeMatch[].vulnerable", "match_criteria_id": "cve.configurations[].nodes[].cpeMatch[].matchCriteriaId", "cpe_uri": "cve.configurations[].nodes[].cpeMatch[].criteria", "version_start_including": "cve.configurations[].nodes[].cpeMatch[].versionStartIncluding", "version_start_excluding": "cve.configurations[].nodes[].cpeMatch[].versionStartExcluding", "version_end_including": "cve.configurations[].nodes[].cpeMatch[].versionEndIncluding", "version_end_excluding": "cve.configurations[].nodes[].cpeMatch[].versionEndExcluding", "source_modified_at": "cve.lastModified"}
+    },
+    "ghsa_advisories": {
+      "source_id": "patch8_github_advisory_database",
+      "fields": {"ghsa_id": "id", "published_at": "published", "modified_at": "modified", "withdrawn_at": "withdrawn", "summary": "summary", "details": "details", "qualitative_severity": "severity", "references": "references[].url", "credits": "credits[]"}
+    },
+    "ghsa_cve_aliases": {"source_id": "patch8_github_advisory_database", "fields": {"ghsa_id": "id", "cve_id": "aliases[]"}},
+    "ghsa_affected_packages": {"source_id": "patch8_github_advisory_database", "fields": {"ghsa_id": "id", "ecosystem": "affected[].package.ecosystem", "ecosystem_original": "affected[].package.ecosystem", "package_name": "affected[].package.name", "package_url": "affected[].package.purl"}},
+    "ghsa_package_ranges": {"source_id": "patch8_github_advisory_database", "fields": {"ghsa_id": "id", "range_type": "affected[].ranges[].type", "range_repo": "affected[].ranges[].repo"}},
+    "ghsa_range_events": {"source_id": "patch8_github_advisory_database", "fields": {"ghsa_id": "id", "event_type": "affected[].ranges[].events[]", "event_value": "affected[].ranges[].events[]"}},
+    "ghsa_explicit_versions": {"source_id": "patch8_github_advisory_database", "fields": {"ghsa_id": "id", "version": "affected[].versions[]"}},
+    "kev_observations": {
+      "source_id": "patch8_cisa_kev",
+      "fields": {"cve_id": "vulnerabilities.*", "catalog_version": "catalogVersion", "catalog_released_at": "dateReleased", "vendor_project": "vulnerabilities.*", "product": "vulnerabilities.*", "vulnerability_name": "vulnerabilities.*", "date_added": "vulnerabilities.*", "short_description": "vulnerabilities.*", "required_action": "vulnerabilities.*", "due_date": "vulnerabilities.*", "known_ransomware_campaign_use": "vulnerabilities.*", "notes": "vulnerabilities.*", "cwe_ids": "vulnerabilities.*"}
+    },
+    "ssvc_observations": {
+      "source_id": "patch8_cisa_vulnrichment",
+      "fields": {"cve_id": "cveMetadata.cveId", "exploitation": "containers.adp[provider=CISA-ADP].metrics", "automatable": "containers.adp[provider=CISA-ADP].metrics", "technical_impact": "containers.adp[provider=CISA-ADP].metrics", "decision_at": "containers.adp[provider=CISA-ADP].metrics", "provider_org_id": "containers.adp[provider=CISA-ADP].providerMetadata", "provider_short_name": "containers.adp[provider=CISA-ADP].providerMetadata", "source_modified_at": "normalized_adp_history.*"}
+    },
+    "cwe_catalog": {
+      "source_id": "patch8_mitre_cwe",
+      "fields": {"cwe_id": "cwe_id", "name": "name", "entry_type": "entry_type", "abstraction": "abstraction", "status": "status", "description": "description", "extended_description": "extended_description", "relationships": "relationships", "applicable_platforms": "applicable_platforms", "consequences": "consequences", "detection_methods": "detection_methods", "mitigations": "mitigations", "notes": "notes", "external_references": "external_reference_metadata", "content_history": "content_history"}
+    },
+    "change_events": {"source_id": "patch8_nvd", "fields": {"field_path": "nvd.history.allowed_value_change", "change_type": "nvd.history.change_type", "source_event_at": "nvd.history.change_time", "old_value_hash": "nvd.history.denied_value_sha256", "new_value_hash": "nvd.history.denied_value_sha256"}}
+  },
+  "derivation_input_overrides": {
+    "affected_software.configuration_id": ["affected_software.cve_id", "affected_software.operator", "affected_software.negate"],
+    "affected_software.node_id": ["affected_software.configuration_id", "affected_software.operator", "affected_software.negate", "affected_software.cpe_uri"],
+    "affected_software.parent_node_id": ["affected_software.configuration_id", "affected_software.node_id"],
+    "affected_software.vendor": ["affected_software.cpe_uri"],
+    "affected_software.product": ["affected_software.cpe_uri"],
+    "affected_software.version": ["affected_software.cpe_uri"],
+    "vulnerabilities.description_observation_id": ["descriptions.observation_id"],
+    "vulnerabilities.cvss_observation_id": ["cvss_observations.observation_id"],
+    "vulnerabilities.kev_observation_id": ["kev_observations.observation_id"],
+    "vulnerabilities.ssvc_observation_id": ["ssvc_observations.observation_id"],
+    "vulnerability_recent.selected_observation_id": ["descriptions.observation_id", "cvss_observations.observation_id", "kev_observations.observation_id"],
+    "vulnerability_search_terms.selected_observation_id": ["descriptions.observation_id", "affected_software.observation_id", "ghsa_affected_packages.observation_id"]
+  },
+  "table_derivation_dependencies": {
+    "vulnerabilities": ["descriptions.observation_id", "cvss_observations.observation_id", "weakness_observations.observation_id", "affected_software.observation_id", "ghsa_cve_aliases.observation_id", "kev_observations.observation_id", "ssvc_observations.observation_id"],
+    "provenance": [],
+    "source_snapshots": [],
+    "derivations": ["descriptions.observation_id", "cvss_observations.observation_id", "weakness_observations.observation_id", "references.observation_id", "affected_software.observation_id", "ghsa_advisories.observation_id", "kev_observations.observation_id", "ssvc_observations.observation_id", "cwe_catalog.observation_id"],
+    "source_status": ["source_snapshots.source_snapshot_id"],
+    "capability_status": ["source_status.source_id"],
+    "vulnerability_recent": ["vulnerabilities.cve_id", "vulnerabilities.selection_derivation_id"],
+    "vulnerability_search_terms": ["vulnerabilities.cve_id", "descriptions.observation_id", "affected_software.observation_id", "ghsa_affected_packages.observation_id"],
+    "software_product_vulnerabilities": ["vulnerabilities.cve_id", "affected_software.observation_id"],
+    "package_vulnerabilities": ["vulnerabilities.cve_id", "ghsa_cve_aliases.observation_id", "ghsa_affected_packages.observation_id", "ghsa_package_ranges.observation_id", "ghsa_range_events.observation_id", "ghsa_explicit_versions.observation_id"],
+    "kev_current": ["vulnerabilities.cve_id", "kev_observations.observation_id"],
+    "cwe_by_vulnerability": ["vulnerabilities.cve_id", "weakness_observations.observation_id", "cwe_catalog.observation_id"]
+  },
   "required_capabilities": {
     "cve_identity": "supported",
     "cve_description": "supported",
@@ -56,6 +219,18 @@
     "epss": "unavailable",
     "patch_tuesday": "unavailable",
     "threat_context": "unavailable"
+  },
+  "capability_source_dependencies": {
+    "cve_identity": ["patch8_cvelist_v5"],
+    "cve_description": ["patch8_cvelist_v5"],
+    "nvd_analysis": ["patch8_nvd"],
+    "kev": ["patch8_cisa_kev"],
+    "package_coverage": ["patch8_github_advisory_database"],
+    "cisa_vulnrichment": ["patch8_cisa_vulnrichment"],
+    "cwe_detail": ["patch8_nvd", "patch8_mitre_cwe"],
+    "epss": [],
+    "patch_tuesday": [],
+    "threat_context": []
   },
   "freshness_hours": {
     "patch8_cvelist_v5": 30,

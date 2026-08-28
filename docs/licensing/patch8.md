@@ -406,7 +406,10 @@ The YAML and test list below are retained only as historical F2 research context
 source identifiers and broad field groups. P3 replaced them with the closed
 [`source-policy.json`](source-policy.json), [`source-policy.schema.json`](../../contracts/source-policy.schema.json),
 [`data-content-v1.json`](../../contracts/data-content-v1.json), and tested Patch8 manifest contract. Implementations must
-use those machine files and their exact `patch8_*` source identifiers; no direct EPSS mode is approved.
+use those machine files and their exact `patch8_*` source identities, repositories, allowed fields, blocked artifacts,
+required notices, publication modes, immutable-revision requirements, and output derivation ledger; none may be widened
+by a producer manifest. NVD configuration/node identifiers are Link42 derivations from pinned source paths, not raw NVD
+fields. No direct EPSS mode is approved.
 
 ```yaml
 policy_version: 1

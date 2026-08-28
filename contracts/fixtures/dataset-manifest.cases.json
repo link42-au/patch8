@@ -26,6 +26,30 @@
       "expected_error_codes": ["TABLE_SCHEMA_FINGERPRINT_INVALID"]
     },
     {
+      "name": "reject widening an exact field type",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set", "path": "/table_schemas/0/fields/1/type", "value": "UTF8" }],
+      "expected_error_codes": ["TABLE_SCHEMA_FINGERPRINT_INVALID", "TABLE_SCHEMA_INVALID"]
+    },
+    {
+      "name": "reject widening exact field nullability",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set", "path": "/table_schemas/0/fields/0/nullable", "value": true }],
+      "expected_error_codes": ["TABLE_SCHEMA_FINGERPRINT_INVALID", "TABLE_SCHEMA_INVALID"]
+    },
+    {
+      "name": "reject a self-declared primary key",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set", "path": "/table_schemas/0/primary_key", "value": ["cve_year"] }],
+      "expected_error_codes": ["TABLE_SCHEMA_FINGERPRINT_INVALID", "TABLE_SCHEMA_INVALID"]
+    },
+    {
+      "name": "reject self-declared sort keys",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set", "path": "/table_schemas/0/sort_keys", "value": ["cve_year"] }],
+      "expected_error_codes": ["TABLE_SCHEMA_FINGERPRINT_INVALID", "TABLE_SCHEMA_INVALID"]
+    },
+    {
       "name": "reject an unknown top-level manifest field",
       "reader": { "manifest_version": 1, "schema_version": 1 },
       "mutations": [{ "operation": "set", "path": "/unexpected", "value": true }],
@@ -101,7 +125,7 @@
       "name": "reject a missing required source snapshot",
       "reader": { "manifest_version": 1, "schema_version": 1 },
       "mutations": [{ "operation": "delete", "path": "/source_snapshots/0" }],
-      "expected_error_codes": ["SOURCE_COVERAGE_INVALID", "SOURCE_INVALID"]
+      "expected_error_codes": ["FRESHNESS_BOUND_INVALID", "SOURCE_COVERAGE_INVALID", "SOURCE_INVALID"]
     },
     {
       "name": "reject an unpinned cvelistV5 snapshot",
@@ -122,6 +146,24 @@
       "expected_error_codes": ["WATERMARK_GAP"]
     },
     {
+      "name": "reject GHSA using a non-Git watermark",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set", "path": "/source_snapshots/3/watermark/kind", "value": "catalogue_version" }],
+      "expected_error_codes": ["SOURCE_IDENTITY_INVALID", "SOURCE_REVISION_UNPINNED"]
+    },
+    {
+      "name": "reject GHSA using an unreviewed repository locator",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set", "path": "/source_snapshots/3/endpoint_or_repository", "value": "https://example.invalid/evil" }],
+      "expected_error_codes": ["SOURCE_IDENTITY_INVALID"]
+    },
+    {
+      "name": "reject Vulnrichment cursor not tied to its immutable commit",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set", "path": "/source_snapshots/4/watermark/cursor", "value": "dddddddddddddddddddddddddddddddddddddddd" }],
+      "expected_error_codes": ["SOURCE_REVISION_UNPINNED", "WATERMARK_GAP"]
+    },
+    {
       "name": "reject missing cvelistV5 notice provenance",
       "reader": { "manifest_version": 1, "schema_version": 1 },
       "mutations": [{ "operation": "set", "path": "/source_snapshots/0/notice_ids", "value": ["notice.nvd"] }],
@@ -131,25 +173,55 @@
       "name": "reject unsafe non-HTTPS upstream location",
       "reader": { "manifest_version": 1, "schema_version": 1 },
       "mutations": [{ "operation": "set", "path": "/source_snapshots/0/endpoint_or_repository", "value": "http://example.invalid/cvelist" }],
-      "expected_error_codes": ["MANIFEST_STRUCTURE_INVALID"]
+      "expected_error_codes": ["MANIFEST_STRUCTURE_INVALID", "SOURCE_IDENTITY_INVALID"]
     },
     {
       "name": "reject an unallowed NVD description field",
       "reader": { "manifest_version": 1, "schema_version": 1 },
       "mutations": [{ "operation": "set", "path": "/field_lineage/0/source_id", "value": "patch8_nvd" }, { "operation": "set", "path": "/field_lineage/0/source_field", "value": "cve.descriptions[].value" }],
-      "expected_error_codes": ["FIELD_NOT_ALLOWED"]
+      "expected_error_codes": ["FIELD_NOT_ALLOWED", "OUTPUT_LEDGER_INVALID"]
     },
     {
       "name": "reject a missing field provenance decision",
       "reader": { "manifest_version": 1, "schema_version": 1 },
       "mutations": [{ "operation": "delete", "path": "/field_lineage/0" }],
-      "expected_error_codes": ["FIELD_PROVENANCE_INVALID"]
+      "expected_error_codes": ["FIELD_PROVENANCE_INVALID", "OUTPUT_LEDGER_INVALID"]
     },
     {
       "name": "reject a derivation with unknown inputs",
       "reader": { "manifest_version": 1, "schema_version": 1 },
       "mutations": [{ "operation": "set", "path": "/derivations/0/input_fields", "value": ["vulnerabilities.unknown"] }],
-      "expected_error_codes": ["DERIVATION_INVALID"]
+      "expected_error_codes": ["DERIVATION_INVALID", "OUTPUT_LEDGER_INVALID"]
+    },
+    {
+      "name": "reject deriving a CVE description from its record identifier",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [
+        { "operation": "delete_matching", "path": "/field_lineage", "match": {"table": "descriptions", "field": "description"} },
+        { "operation": "append", "path": "/derivations", "value": {"output_table": "descriptions", "output_field": "description", "rule_id": "derive_descriptions_description_v1", "rule_version": 1, "transformation_id": "derived_projection_v1", "input_fields": ["descriptions.cve_id"], "source_ids": ["patch8_cvelist_v5"], "notice_ids": ["notice.cve_program"], "pointer_semantics": "derived_value", "provenance_required": true} }
+      ],
+      "expected_error_codes": ["OUTPUT_LEDGER_INVALID"]
+    },
+    {
+      "name": "reject deriving a CVSS score from its CVE identifier",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [
+        { "operation": "delete_matching", "path": "/field_lineage", "match": {"table": "cvss_observations", "field": "base_score"} },
+        { "operation": "append", "path": "/derivations", "value": {"output_table": "cvss_observations", "output_field": "base_score", "rule_id": "derive_cvss_observations_base_score_v1", "rule_version": 1, "transformation_id": "derived_projection_v1", "input_fields": ["cvss_observations.cve_id"], "source_ids": ["patch8_nvd"], "notice_ids": ["notice.nvd"], "pointer_semantics": "derived_value", "provenance_required": true} }
+      ],
+      "expected_error_codes": ["OUTPUT_LEDGER_INVALID"]
+    },
+    {
+      "name": "reject deriving schema version from a vulnerability record",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set_matching", "path": "/derivations", "match": {"output_table": "vulnerabilities", "output_field": "schema_version"}, "field": "input_fields", "value": ["vulnerabilities.cve_id"] }],
+      "expected_error_codes": ["OUTPUT_LEDGER_INVALID"]
+    },
+    {
+      "name": "reject weakening NVD source-path identity inputs",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set_matching", "path": "/derivations", "match": {"output_table": "affected_software", "output_field": "configuration_id"}, "field": "input_fields", "value": ["affected_software.cve_id"] }],
+      "expected_error_codes": ["OUTPUT_LEDGER_INVALID"]
     },
     {
       "name": "reject a false zero for unavailable EPSS",
@@ -161,13 +233,69 @@
       "name": "reject a false supported Patch Tuesday state",
       "reader": { "manifest_version": 1, "schema_version": 1 },
       "mutations": [{ "operation": "set", "path": "/coverage/capabilities/8/state", "value": "supported" }],
-      "expected_error_codes": ["CAPABILITY_STATE_INVALID"]
+      "expected_error_codes": ["CAPABILITY_COVERAGE_INVALID", "CAPABILITY_STATE_INVALID"]
     },
     {
       "name": "reject a capability claim from blocked EPSS",
       "reader": { "manifest_version": 1, "schema_version": 1 },
       "mutations": [{ "operation": "set", "path": "/coverage/capabilities/0/source_ids", "value": ["patch8_first_epss"] }],
-      "expected_error_codes": ["SOURCE_INVALID"]
+      "expected_error_codes": ["CAPABILITY_STATE_INVALID", "SOURCE_INVALID"]
+    },
+    {
+      "name": "reject duplicate source coverage identities",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "copy", "from": "/coverage/sources/0", "path": "/coverage/sources" }],
+      "expected_error_codes": ["MANIFEST_STRUCTURE_INVALID", "SOURCE_COVERAGE_DUPLICATE"]
+    },
+    {
+      "name": "reject duplicate capability coverage identities",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "copy", "from": "/coverage/capabilities/0", "path": "/coverage/capabilities" }],
+      "expected_error_codes": ["CAPABILITY_COVERAGE_DUPLICATE", "MANIFEST_STRUCTURE_INVALID"]
+    },
+    {
+      "name": "reject supported capabilities when cvelistV5 is unavailable",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set", "path": "/coverage/sources/0/state", "value": "unavailable" }],
+      "expected_error_codes": ["CAPABILITY_STATE_INVALID"]
+    },
+    {
+      "name": "accept honest capability degradation when cvelistV5 is unavailable",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [
+        { "operation": "set", "path": "/coverage/sources/0/state", "value": "unavailable" },
+        { "operation": "set", "path": "/coverage/capabilities/0/state", "value": "unavailable" },
+        { "operation": "set", "path": "/coverage/capabilities/0/coverage_numerator", "value": null },
+        { "operation": "set", "path": "/coverage/capabilities/0/coverage_denominator", "value": null },
+        { "operation": "set", "path": "/coverage/capabilities/1/state", "value": "unavailable" },
+        { "operation": "set", "path": "/coverage/capabilities/1/coverage_numerator", "value": null },
+        { "operation": "set", "path": "/coverage/capabilities/1/coverage_denominator", "value": null }
+      ],
+      "expected_error_codes": []
+    },
+    {
+      "name": "reject capability numerator above denominator",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set", "path": "/coverage/capabilities/0/coverage_numerator", "value": 2 }],
+      "expected_error_codes": ["CAPABILITY_COVERAGE_INVALID"]
+    },
+    {
+      "name": "reject partial capability claiming complete coverage",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set", "path": "/coverage/capabilities/4/coverage_denominator", "value": 1 }],
+      "expected_error_codes": ["CAPABILITY_COVERAGE_INVALID"]
+    },
+    {
+      "name": "reject capability as-at time not bound to dataset build",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set", "path": "/coverage/capabilities/0/as_at", "value": "2026-08-29T01:21:00Z" }],
+      "expected_error_codes": ["CAPABILITY_STATE_INVALID"]
+    },
+    {
+      "name": "reject source coverage check time not bound to its snapshot",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set", "path": "/coverage/sources/0/checked_at", "value": "2026-08-29T01:01:00Z" }],
+      "expected_error_codes": ["FRESHNESS_BOUND_INVALID"]
     },
     {
       "name": "reject a mismatched rights-policy digest",
@@ -198,6 +326,24 @@
       "reader": { "manifest_version": 1, "schema_version": 1 },
       "mutations": [{ "operation": "set", "path": "/clocks/manifest_published_at", "value": "2026-08-29T01:19:59Z" }],
       "expected_error_codes": ["CLOCK_INVALID"]
+    },
+    {
+      "name": "reject a manifest latest-source clock not bound to its snapshots",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set", "path": "/clocks/latest_source_checked_at", "value": "2026-08-29T01:05:00Z" }],
+      "expected_error_codes": ["CLOCK_INVALID"]
+    },
+    {
+      "name": "reject a manifest stale clock not bound to its earliest source boundary",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set", "path": "/clocks/stale_at", "value": "2026-08-30T07:00:01Z" }],
+      "expected_error_codes": ["CLOCK_INVALID"]
+    },
+    {
+      "name": "reject a supported capability whose required source claims stale",
+      "reader": { "manifest_version": 1, "schema_version": 1 },
+      "mutations": [{ "operation": "set", "path": "/coverage/sources/0/state", "value": "stale" }],
+      "expected_error_codes": ["SOURCE_STATE_INVALID", "CAPABILITY_STATE_INVALID"]
     },
     {
       "name": "reject a source stale time outside its v1 freshness threshold",

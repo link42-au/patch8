@@ -84,6 +84,7 @@
           "items": { "$ref": "#/$defs/httpsUrl" }
         },
         "repository": { "$ref": "#/$defs/httpsUrl" },
+        "source_locator": { "$ref": "#/$defs/httpsUrl" },
         "immutable_revision_required": { "type": "boolean" },
         "record_path_required": { "type": "boolean" },
         "record_sha256_required": { "type": "boolean" },
