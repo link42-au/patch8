@@ -16,9 +16,9 @@
         "generated_at": "2026-08-28T01:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/patch-data",
+          "repository": "link42-au/patch",
           "immutable_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "base_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+          "base_url": "https://huggingface.co/datasets/link42-au/patch/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
         },
         "compatibility": {
           "min_reader_manifest_version": 1,
@@ -29,7 +29,7 @@
         "previous_release": {
           "release_id": "2026-08-27.1",
           "immutable_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "manifest_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
+          "manifest_url": "https://huggingface.co/datasets/link42-au/patch/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
           "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
         },
         "builder": {
@@ -305,9 +305,9 @@
         "generated_at": "2026-08-28T02:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/threat-data",
+          "repository": "link42-au/threat",
           "immutable_revision": "1111111111111111111111111111111111111111",
-          "base_url": "https://huggingface.co/datasets/link42-au/threat-data/resolve/1111111111111111111111111111111111111111/"
+          "base_url": "https://huggingface.co/datasets/link42-au/threat/resolve/1111111111111111111111111111111111111111/"
         },
         "compatibility": {
           "min_reader_manifest_version": 1,
@@ -592,9 +592,9 @@
         "generated_at": "2026-08-28T01:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/patch-data",
+          "repository": "link42-au/patch",
           "immutable_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "base_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+          "base_url": "https://huggingface.co/datasets/link42-au/patch/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
         },
         "compatibility": {
           "min_reader_manifest_version": 2,
@@ -605,7 +605,7 @@
         "previous_release": {
           "release_id": "2026-08-27.1",
           "immutable_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "manifest_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
+          "manifest_url": "https://huggingface.co/datasets/link42-au/patch/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
           "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
         },
         "builder": {
@@ -883,9 +883,9 @@
         "generated_at": "2026-08-28T01:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/patch-data",
+          "repository": "link42-au/patch",
           "immutable_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "base_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+          "base_url": "https://huggingface.co/datasets/link42-au/patch/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
         },
         "compatibility": {
           "min_reader_manifest_version": 1,
@@ -896,7 +896,7 @@
         "previous_release": {
           "release_id": "2026-08-27.1",
           "immutable_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "manifest_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
+          "manifest_url": "https://huggingface.co/datasets/link42-au/patch/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
           "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
         },
         "builder": {
@@ -1174,9 +1174,9 @@
         "generated_at": "2026-08-28T01:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/patch-data",
+          "repository": "link42-au/patch",
           "immutable_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "base_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+          "base_url": "https://huggingface.co/datasets/link42-au/patch/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
         },
         "compatibility": {
           "min_reader_manifest_version": 1,
@@ -1187,7 +1187,7 @@
         "previous_release": {
           "release_id": "2026-08-27.1",
           "immutable_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "manifest_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json"
+          "manifest_url": "https://huggingface.co/datasets/link42-au/patch/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json"
         },
         "builder": {
           "name": "patch8-dataset-builder",
@@ -1464,9 +1464,9 @@
         "generated_at": "2026-08-28T01:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/patch-data",
+          "repository": "link42-au/patch",
           "immutable_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "base_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+          "base_url": "https://huggingface.co/datasets/link42-au/patch/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
         },
         "compatibility": {
           "min_reader_manifest_version": 1,
@@ -1477,7 +1477,7 @@
         "previous_release": {
           "release_id": "2026-08-27.1",
           "immutable_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "manifest_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
+          "manifest_url": "https://huggingface.co/datasets/link42-au/patch/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
           "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
         },
         "builder": {
@@ -1755,9 +1755,9 @@
         "generated_at": "2026-08-28T01:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/patch-data",
+          "repository": "link42-au/patch",
           "immutable_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "base_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+          "base_url": "https://huggingface.co/datasets/link42-au/patch/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
         },
         "compatibility": {
           "min_reader_manifest_version": 1,
@@ -1768,7 +1768,7 @@
         "previous_release": {
           "release_id": "2026-08-27.1",
           "immutable_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "manifest_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
+          "manifest_url": "https://huggingface.co/datasets/link42-au/patch/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
           "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
         },
         "builder": {
@@ -2046,9 +2046,9 @@
         "generated_at": "2026-08-28T01:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/patch-data",
+          "repository": "link42-au/patch",
           "immutable_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "base_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+          "base_url": "https://huggingface.co/datasets/link42-au/patch/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
         },
         "compatibility": {
           "min_reader_manifest_version": 1,
@@ -2059,7 +2059,7 @@
         "previous_release": {
           "release_id": "2026-08-27.1",
           "immutable_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "manifest_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
+          "manifest_url": "https://huggingface.co/datasets/link42-au/patch/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
           "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
         },
         "builder": {
@@ -2337,9 +2337,9 @@
         "generated_at": "2026-08-28T01:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/patch-data",
+          "repository": "link42-au/patch",
           "immutable_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "base_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+          "base_url": "https://huggingface.co/datasets/link42-au/patch/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
         },
         "compatibility": {
           "min_reader_manifest_version": 1,
@@ -2350,7 +2350,7 @@
         "previous_release": {
           "release_id": "2026-08-27.1",
           "immutable_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "manifest_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
+          "manifest_url": "https://huggingface.co/datasets/link42-au/patch/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
           "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
         },
         "builder": {
@@ -2611,9 +2611,9 @@
         "generated_at": "2026-08-28T01:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/patch-data",
+          "repository": "link42-au/patch",
           "immutable_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "base_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+          "base_url": "https://huggingface.co/datasets/link42-au/patch/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
         },
         "compatibility": {
           "min_reader_manifest_version": 1,
@@ -2624,7 +2624,7 @@
         "previous_release": {
           "release_id": "2026-08-27.1",
           "immutable_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "manifest_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
+          "manifest_url": "https://huggingface.co/datasets/link42-au/patch/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
           "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
         },
         "builder": {
@@ -2901,9 +2901,9 @@
         "generated_at": "2026-08-28T01:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/patch-data",
+          "repository": "link42-au/patch",
           "immutable_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "base_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+          "base_url": "https://huggingface.co/datasets/link42-au/patch/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
         },
         "compatibility": {
           "min_reader_manifest_version": 1,
@@ -2914,7 +2914,7 @@
         "previous_release": {
           "release_id": "2026-08-27.1",
           "immutable_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "manifest_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
+          "manifest_url": "https://huggingface.co/datasets/link42-au/patch/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
           "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
         },
         "builder": {
@@ -3192,9 +3192,9 @@
         "generated_at": "2026-08-28T01:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/patch-data",
+          "repository": "link42-au/patch",
           "immutable_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "base_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+          "base_url": "https://huggingface.co/datasets/link42-au/patch/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
         },
         "compatibility": {
           "min_reader_manifest_version": 1,
@@ -3205,7 +3205,7 @@
         "previous_release": {
           "release_id": "2026-08-27.1",
           "immutable_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "manifest_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
+          "manifest_url": "https://huggingface.co/datasets/link42-au/patch/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
           "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
         },
         "builder": {
@@ -3483,9 +3483,9 @@
         "generated_at": "2026-08-28T01:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/patch-data",
+          "repository": "link42-au/patch",
           "immutable_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "base_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/9999999999999999999999999999999999999999/"
+          "base_url": "https://huggingface.co/datasets/link42-au/patch/resolve/9999999999999999999999999999999999999999/"
         },
         "compatibility": {
           "min_reader_manifest_version": 1,
@@ -3496,7 +3496,7 @@
         "previous_release": {
           "release_id": "2026-08-27.1",
           "immutable_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "manifest_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
+          "manifest_url": "https://huggingface.co/datasets/link42-au/patch/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
           "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
         },
         "builder": {
@@ -3774,9 +3774,9 @@
         "generated_at": "2026-08-28T01:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/patch-data",
+          "repository": "link42-au/patch",
           "immutable_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "base_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+          "base_url": "https://huggingface.co/datasets/link42-au/patch/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
         },
         "compatibility": {
           "min_reader_manifest_version": 1,
@@ -3787,7 +3787,7 @@
         "previous_release": {
           "release_id": "2026-08-27.1",
           "immutable_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "manifest_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
+          "manifest_url": "https://huggingface.co/datasets/link42-au/patch/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
           "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
         },
         "builder": {
@@ -4065,9 +4065,9 @@
         "generated_at": "2026-08-28T01:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/patch-data",
+          "repository": "link42-au/patch",
           "immutable_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "base_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+          "base_url": "https://huggingface.co/datasets/link42-au/patch/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
         },
         "compatibility": {
           "min_reader_manifest_version": 1,
@@ -4078,7 +4078,7 @@
         "previous_release": {
           "release_id": "2026-08-27.1",
           "immutable_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "manifest_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
+          "manifest_url": "https://huggingface.co/datasets/link42-au/patch/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
           "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
         },
         "builder": {
@@ -4356,9 +4356,9 @@
         "generated_at": "2026-08-28T01:00:00Z",
         "storage": {
           "provider": "huggingface",
-          "repository": "link42-au/patch-data",
+          "repository": "link42-au/patch",
           "immutable_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "base_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+          "base_url": "https://huggingface.co/datasets/link42-au/patch/resolve/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
         },
         "compatibility": {
           "min_reader_manifest_version": 1,
@@ -4369,7 +4369,7 @@
         "previous_release": {
           "release_id": "2026-08-27.1",
           "immutable_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "manifest_url": "https://huggingface.co/datasets/link42-au/patch-data/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
+          "manifest_url": "https://huggingface.co/datasets/link42-au/patch/resolve/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dataset-manifest.json",
           "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
         },
         "builder": {

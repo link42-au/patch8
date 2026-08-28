@@ -34,6 +34,8 @@ mobile Safari itself passed. P2 therefore remains **in progress**, not `source-c
 representative mobile Safari run the same query, request-origin, transfer-budget, corrupt-update, and previous-good
 assertions.
 
-The synthetic proof also does not claim Hugging Face CORS/range behaviour: `link42-au/patch-data` does not exist. P7
-retains that publication blocker. P2 establishes same-origin deterministic query behaviour and partition budgets only.
+The public, ungated Hugging Face dataset `link42-au/patch` exists, and its anonymous API returned HTTP 200 at revision
+`4166c9ebad7b6ace32690bedd41748dfc88a12a6` on 2026-08-28. It does not yet contain a verified Patch8 release, so the
+synthetic proof does not claim live dataset-file CORS/range behaviour. P7 retains the local-build and scoped
+write/readback publication gates. P2 establishes same-origin deterministic query behaviour and partition budgets only.
 Explicit stale-manifest activation, persistent-cache behaviour, and browser memory profiling also remain unmeasured.

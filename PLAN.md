@@ -13,8 +13,10 @@ responsive behaviour must be preserved while its removed Worker/D1 data path is 
 
 Patch8 will build an application-owned, query-routed Parquet dataset from approved official sources. A static browser
 client will query those files with DuckDB-Wasm. Source code, tests, policy, and workflows live in
-[`link42-au/patch8`](https://github.com/link42-au/patch8); the bounded public dataset will live in the best-effort public
-Hugging Face dataset repository `link42-au/patch-data` once that organization and repository exist.
+[`link42-au/patch8`](https://github.com/link42-au/patch8); the bounded public dataset lives in the best-effort public
+Hugging Face dataset repository [`link42-au/patch`](https://huggingface.co/datasets/link42-au/patch). The repository is
+public and ungated; its anonymous API read returned HTTP 200 at revision
+`4166c9ebad7b6ace32690bedd41748dfc88a12a6` on 2026-08-28. No verified Patch8 release has been published there yet.
 
 ## Project information
 
@@ -24,7 +26,7 @@ Hugging Face dataset repository `link42-au/patch-data` once that organization an
 | Application | Existing static SvelteKit/TypeScript app on GitHub Pages |
 | Browser query engine | DuckDB-Wasm over query-routed Parquet |
 | Dataset builder | App-owned Python pipeline, with deterministic transforms and tests |
-| Dataset storage | Public best-effort Hugging Face dataset repository `link42-au/patch-data` |
+| Dataset storage | Public best-effort Hugging Face dataset repository `link42-au/patch` |
 | Initial build | Run locally to avoid hosted Actions time and establish the first verified release |
 | Updates | Bounded source-change builds on public GitHub Actions; no permanent file-per-day layout |
 | Runtime services | None: no API, Worker, D1, server, auth, account, billing, or paid/private feature |
@@ -97,7 +99,7 @@ Official NVD / CVE / KEV / Vulnrichment sources
         local candidate release + deterministic checks
                          |
                          v
-    public HF dataset link42-au/patch-data (best effort)
+    public HF dataset link42-au/patch (best effort)
                          |
              immutable data revision
                          |
@@ -148,14 +150,14 @@ recorded before blocked work continues.
 
 | # | Feature | Depends on | Acceptance and required tests | Target | Current |
 |---|---|---|---|---|---|
-| P0 | **Adopt DuckDB dataset architecture** | User approval | This plan and README consistently define the legacy UI authority, app-owned Parquet build, DuckDB-Wasm client, public best-effort `link42-au/patch-data` storage, two-key rights gate, bounded updates, manifest-last activation, previous-good rollback, and publication blocker. Local links and Markdown diff validate. | source-complete | **source-complete** |
+| P0 | **Adopt DuckDB dataset architecture** | User approval | This plan and README consistently define the legacy UI authority, app-owned Parquet build, DuckDB-Wasm client, public best-effort `link42-au/patch` storage, two-key rights gate, bounded updates, manifest-last activation, previous-good rollback, and publication blocker. Local links and Markdown diff validate. | source-complete | **source-complete** |
 | P1 | **Lock the restored legacy interface as authority** | P0 | Existing route, DOM, copy, asset, token, responsive, and visual tests remain the authority. Add missing screenshot baselines only where needed. No data feature may change layout or replace an existing route/state; Auth/Admin remain absent. | live-verified | **live-verified** |
 | P2 | **Prove synthetic Parquet and DuckDB-Wasm browser access** | P0, P1 | Add a small representative, rights-safe synthetic dataset and manifest. The static browser resolves routes, loads only declared Parquet, and runs exact-CVE, filtered list, detail join, KEV, product, pagination, empty, stale, corrupt, and previous-good queries with DuckDB-Wasm. Chrome, Firefox, desktop Safari, and representative mobile Safari evidence records requests, bytes, latency, memory, cache behaviour, CORS/range behaviour, and explicit file-size/query budgets. No backend or token is contacted. Evidence: [`docs/p2-duckdb-proof.md`](docs/p2-duckdb-proof.md). Deterministic fixtures plus local Chromium, Firefox, and Playwright WebKit same-origin/query/corrupt/fallback/byte-budget checks pass; actual desktop/mobile Safari and live HF evidence remain unexecuted. | source-complete | **in progress** |
-| P3 | **Implement the source, field, and manifest contracts** | P2 | Replace the historical manifest evidence with a tested Patch8 contract for `link42-au/patch-data`. Add a primary-source-evidence-backed CVE Program `cvelistV5` public-dataset rule before any CVE fetch or output. Validate immutable data revision, safe paths, unique files, SHA-256, schema fingerprints, row counts, partition bounds, source watermarks, compatibility, freshness, policy version, and previous-good. The two-key gate rejects disabled or unregistered sources, unknown fields, blocked artifacts, unproven lineage, raw payloads, mixed revisions, and unsafe URLs. | source-complete | planned |
+| P3 | **Implement the source, field, and manifest contracts** | P2 | Replace the historical manifest evidence with a tested Patch8 contract for `link42-au/patch`. Add a primary-source-evidence-backed CVE Program `cvelistV5` public-dataset rule before any CVE fetch or output. Validate immutable data revision, safe paths, unique files, SHA-256, schema fingerprints, row counts, partition bounds, source watermarks, compatibility, freshness, policy version, and previous-good. The two-key gate rejects disabled or unregistered sources, unknown fields, blocked artifacts, unproven lineage, raw payloads, mixed revisions, and unsafe URLs. | source-complete | planned |
 | P4 | **Build official CVE and NVD normalization** | P3 | A deterministic Python pipeline performs the initial bounded full import and modified-window deltas from official CVE Program and NVD sources. It emits only policy-approved normalized observations and provenance. Fixtures cover pagination, overlap watermarks, deduplication, removals, change history, CVE lineage, NVD/CVE conflicts, malformed data, throttling, restart, and clean-build/delta equivalence. | source-complete | planned |
 | P5 | **Build official KEV and Vulnrichment normalization** | P3, P4 | Add commit-pinned official CISA KEV and Vulnrichment inputs. Normalize only approved fields, keep observations source-specific, and join by CVE without overwriting provenance. Fixtures cover additions, edits, removals, SSVC/CVSS/CWE lineage, conflicting values, source revision changes, and deterministic history. No raw mirror or EPSS-derived column is emitted. | source-complete | planned |
 | P6 | **Generate query-routed Parquet releases locally** | P4, P5 | Compile the canonical observations into the P2-budgeted partition layout with deterministic ordering and byte-stable output where the selected writer permits it. Validate schemas, routing coverage, uniqueness, bounds, rights provenance, representative legacy queries, no orphan rows, no blocked fields, and no file-per-day accumulation. Produce a local candidate manifest and previous-good rollback fixture without needing HF credentials. | source-complete | planned |
-| P7 | **Publish the first verified HF dataset release** | P6, HF1 | Run the initial full build locally, upload candidate files to public `link42-au/patch-data`, read them back by immutable revision, run the release suite, and advance `manifest.json` in a second commit. Record exact data/manifest revisions, hashes, source watermarks, bytes, build time, query canary, and previous-good state. A failed check leaves no active release claim. | live-verified | blocked |
+| P7 | **Publish the first verified HF dataset release** | P6, HF1 | Run the initial full build locally, upload candidate files to public `link42-au/patch`, read them back by immutable revision, run the release suite, and advance `manifest.json` in a second commit. Record exact data/manifest revisions, hashes, source watermarks, bytes, build time, query canary, and previous-good state. A failed check leaves no active release claim. | live-verified | **blocked: local full build and scoped publisher write/readback pending** |
 | P8 | **Automate bounded daily source-change builds** | P7 | A public scheduled Action checks official source watermarks, exits without artifact churn when unchanged, and performs restartable deltas when changed. It enforces pacing, overlap, time/size/request budgets, deterministic tests, rights gates, candidate readback, manifest-last activation, and previous-good rollback. It overwrites bounded logical paths rather than adding dated daily files. A self-hosted run may be used when a full reconciliation exceeds public-runner budgets. | live-verified | planned |
 | P9 | **Populate legacy CVE search, list, and detail views** | P7 | Existing legacy routes query the immutable release through the P2 client. Exact lookup, search/filter, pagination, CVSS/CWE/CPE, KEV, Vulnrichment, provenance, source timestamps, freshness, disabled EPSS, empty/error/stale, and previous-good states pass fixture and browser tests without UI redesign. | live-verified | planned |
 | P10 | **Populate legacy product, package, report, and export views** | P9 | Existing views expose only coverage supported by the approved data and label limitations honestly. Product/vendor intelligence, recent activity, prioritisation, and CSV/JSON exports use pinned queried rows, preserve field provenance/freshness, escape untrusted data, and make no server or AI call. Unsupported package capability stays visibly unavailable rather than fabricated. | live-verified | planned |
@@ -166,11 +168,11 @@ recorded before blocked work continues.
 
 | ID | Dependency | Blocks | State |
 |---|---|---|---|
-| HF1 | Create the public Hugging Face organization/account ownership and dataset repository `link42-au/patch-data`; configure the least-privilege write credential only for the publication workflow. | P7 and later live dataset features | **blocked: organization and dataset do not yet exist** |
+| HF1 | Verify public Hugging Face organization/dataset ownership and anonymous reads; configure the least-privilege write credential only for the publication workflow and pass a scoped write/readback canary. | P7 and later live dataset features | **partially resolved:** `link42-au/patch` is public and ungated, and its anonymous API returned HTTP 200 at revision `4166c9ebad7b6ace32690bedd41748dfc88a12a6`; publisher credential and write/readback canary remain. |
 
-P2-P6 are intentionally not blocked by HF1. Synthetic browser work and the complete local pipeline must proceed without
-remote write access. No developer token, placeholder secret, private repository, paid Hugging Face organization, or
-storage bucket is created implicitly.
+P2-P6 are intentionally not blocked by the unresolved HF1 publication portion. Synthetic browser work and the complete
+local pipeline must proceed without remote write access. No developer token, placeholder secret, private repository,
+paid Hugging Face organization, or storage bucket is created implicitly.
 
 ## P2 implementation dependencies
 

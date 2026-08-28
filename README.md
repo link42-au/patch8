@@ -11,7 +11,7 @@ the historical Worker/D1 service with a static SvelteKit application intended fo
 | Static Pages shell | **live-verified** | [Hosted run 33160759689](https://github.com/link42-au/patch8/actions/runs/33160759689) verified the restored legacy interface at [`link42-au.github.io/patch8/`](https://link42-au.github.io/patch8/). This status does not claim data-backed capability. |
 | DuckDB-Wasm data client | **in progress** | Synthetic query-routed Parquet, deterministic fixtures, prepared SQL, corrupt-current fallback, and local Chromium, Firefox, and Playwright WebKit proofs are implemented without changing the legacy UI. Actual desktop/mobile Safari and live HF evidence remain incomplete; see [`docs/p2-duckdb-proof.md`](docs/p2-duckdb-proof.md). |
 | Patch8 dataset builder | **planned; not implemented** | An app-owned Python pipeline will normalize approved NVD, CVE Program, CISA KEV, and CISA Vulnrichment fields. |
-| Public dataset | **blocked** | The best-effort public Hugging Face dataset `link42-au/patch-data` does not exist yet. Local build work can proceed. |
+| Public dataset | **identity live-verified; release blocked** | The public, ungated Hugging Face dataset [`link42-au/patch`](https://huggingface.co/datasets/link42-au/patch) accepts anonymous API reads at revision `4166c9ebad7b6ace32690bedd41748dfc88a12a6`. It does not yet contain a verified Patch8 release; the local full build and scoped publisher write/readback remain pending. |
 | FIRST EPSS | **disabled** | Direct display awaits a version-2 source-policy decision; dataset republication remains prohibited. |
 | OSV | **disabled for first release** | It awaits an enforceable home-database licence registry. |
 | AppThreat | **rejected for first release** | Record-level provenance and a supportable browser range-reader did not clear the release gates. |
@@ -32,8 +32,9 @@ package, software, report, and feed data cannot operate without that backend and
   machine-readable source rule.
 - The first full build runs locally. Public Actions later run bounded source-change updates without accumulating one
   permanent Parquet file per day.
-- Public best-effort dataset storage at `link42-au/patch-data`, activated through an immutable revision manifest with
-  a previous-good release. Publication remains blocked until the Hugging Face organization and dataset exist.
+- Public best-effort dataset storage at `link42-au/patch`, activated through an immutable revision manifest with
+  a previous-good release. The public identity and anonymous read path exist; publication remains blocked pending the
+  local full build, least-privilege publisher credential, and scoped immutable write/readback canary.
 - DuckDB-Wasm queries the pinned Parquet revision directly in the browser. Clients remain read-only.
 - No application server, Worker, D1, hosted query database, auth, account, paid/private feature, runtime AI, API gateway,
   NVD key, Hugging Face write token in the browser, or other runtime secret.
