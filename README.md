@@ -11,7 +11,7 @@ the historical Worker/D1 service with a static SvelteKit application intended fo
 | Static Pages shell | **live-verified** | [Hosted run 33160759689](https://github.com/link42-au/patch8/actions/runs/33160759689) verified the restored legacy interface at [`link42-au.github.io/patch8/`](https://link42-au.github.io/patch8/). This status does not claim data-backed capability. |
 | DuckDB-Wasm data client | **in progress** | Synthetic query-routed Parquet, deterministic fixtures, prepared SQL, corrupt-current fallback, and local Chromium, Firefox, and Playwright WebKit proofs are implemented without changing the legacy UI. Actual desktop/mobile Safari and live HF evidence remain incomplete; see [`docs/p2-duckdb-proof.md`](docs/p2-duckdb-proof.md). |
 | Patch8 dataset builder | **planned; not implemented** | An app-owned Python pipeline will normalize approved NVD, CVE Program, CISA KEV, and CISA Vulnrichment fields. |
-| Public dataset | **blocked** | The best-effort public Hugging Face dataset `link42-au/patch8-data` does not exist yet. Local build work can proceed. |
+| Public dataset | **blocked** | The best-effort public Hugging Face dataset `link42-au/patch-data` does not exist yet. Local build work can proceed. |
 | FIRST EPSS | **disabled** | Direct display awaits a version-2 source-policy decision; dataset republication remains prohibited. |
 | OSV | **disabled for first release** | It awaits an enforceable home-database licence registry. |
 | AppThreat | **rejected for first release** | Record-level provenance and a supportable browser range-reader did not clear the release gates. |
@@ -32,7 +32,7 @@ package, software, report, and feed data cannot operate without that backend and
   machine-readable source rule.
 - The first full build runs locally. Public Actions later run bounded source-change updates without accumulating one
   permanent Parquet file per day.
-- Public best-effort dataset storage at `link42-au/patch8-data`, activated through an immutable revision manifest with
+- Public best-effort dataset storage at `link42-au/patch-data`, activated through an immutable revision manifest with
   a previous-good release. Publication remains blocked until the Hugging Face organization and dataset exist.
 - DuckDB-Wasm queries the pinned Parquet revision directly in the browser. Clients remain read-only.
 - No application server, Worker, D1, hosted query database, auth, account, paid/private feature, runtime AI, API gateway,
