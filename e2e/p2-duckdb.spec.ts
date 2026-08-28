@@ -97,7 +97,7 @@ test.afterAll(async () => {
   });
 });
 
-test("real Chromium queries routed synthetic Parquet with DuckDB-Wasm", async ({ page }) => {
+test("a real browser queries routed synthetic Parquet with DuckDB-Wasm", async ({ page }) => {
   const requests: { url: string; authorization?: string }[] = [];
   let parquetBytes = 0;
 
@@ -149,5 +149,5 @@ test("real Chromium queries routed synthetic Parquet with DuckDB-Wasm", async ({
   expect(requests.every(({ authorization }) => authorization === undefined)).toBe(true);
   expect(requests.every(({ url }) => new URL(url).origin === origin)).toBe(true);
   const parquetRequests = requests.filter(({ url }) => new URL(url).pathname.endsWith(".parquet")).length;
-  console.log(`P2 Chromium evidence: ${parquetBytes} Parquet bytes across ${parquetRequests} same-origin requests.`);
+  console.log(`P2 browser evidence: ${parquetBytes} Parquet bytes across ${parquetRequests} same-origin requests.`);
 });

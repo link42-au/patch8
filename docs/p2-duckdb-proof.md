@@ -20,7 +20,7 @@ Svelte component, DOM contract, CSS, visible copy, or production data source cha
   synthetic product-filter query selects only the two product shards and the CVE shards containing returned IDs.
 - SQL values are passed through DuckDB prepared statements. Only validated manifest paths form internal Parquet table
   expressions.
-- Real Chromium executes exact-ID, severity/KEV filtered list, detail join, product aggregation, pagination, empty,
+- Local Chromium, Firefox, and Playwright WebKit execute exact-ID, severity/KEV filtered list, detail join, product aggregation, pagination, empty,
   corrupt-current, and previous-good queries against generated Parquet. The test records exact Parquet response bytes
   in each local/hosted run and fails above 131,072 aggregate bytes.
 - The Chromium request audit rejects `/api/`, authorization headers, and every non-site runtime request. DuckDB Wasm,
@@ -28,10 +28,11 @@ Svelte component, DOM contract, CSS, visible copy, or production data source cha
 
 ## Incomplete acceptance
 
-The repository's installed and hosted browser workflow currently provides Chromium only. Firefox, desktop Safari,
-and representative mobile Safari have not been executed against P2. P2 therefore remains **in progress**, not
-`source-complete`, even when all available local and hosted checks pass. Those platforms must run the same query,
-request-origin, transfer-budget, corrupt-update, and previous-good assertions before P2 may advance.
+The hosted workflow currently provides Chromium only. A local Playwright 1.62.1 engine matrix passed all six tests on
+Chromium, Firefox, and WebKit on 2026-08-28. Playwright WebKit is compatibility evidence, not a claim that desktop or
+mobile Safari itself passed. P2 therefore remains **in progress**, not `source-complete`, until actual desktop and
+representative mobile Safari run the same query, request-origin, transfer-budget, corrupt-update, and previous-good
+assertions.
 
 The synthetic proof also does not claim Hugging Face CORS/range behaviour: `link42-au/patch8-data` does not exist. P7
 retains that publication blocker. P2 establishes same-origin deterministic query behaviour and partition budgets only.
