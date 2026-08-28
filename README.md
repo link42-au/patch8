@@ -9,7 +9,7 @@ the historical Worker/D1 service with a static SvelteKit application intended fo
 |---|---|---|
 | Legacy interface restoration | **live-verified** | The historical Patch8 layout, dashboard, routes, components, brand assets, tokens, responsive behaviour, and visible copy are locked by tests and deployed in [commit `1b932e3`](https://github.com/link42-au/patch8/commit/1b932e34). |
 | Static Pages shell | **live-verified** | [Hosted run 33160759689](https://github.com/link42-au/patch8/actions/runs/33160759689) verified the restored legacy interface at [`link42-au.github.io/patch8/`](https://link42-au.github.io/patch8/). This status does not claim data-backed capability. |
-| DuckDB-Wasm data client | **planned; not implemented** | The first code feature is a synthetic query-routed Parquet browser spike. P1 makes no runtime data request. |
+| DuckDB-Wasm data client | **in progress** | Synthetic query-routed Parquet, deterministic fixtures, prepared SQL, corrupt-current fallback, and real Chromium proof are implemented without changing the legacy UI. Firefox and Safari evidence is incomplete; see [`docs/p2-duckdb-proof.md`](docs/p2-duckdb-proof.md). |
 | Patch8 dataset builder | **planned; not implemented** | An app-owned Python pipeline will normalize approved NVD, CVE Program, CISA KEV, and CISA Vulnrichment fields. |
 | Public dataset | **blocked** | The best-effort public Hugging Face dataset `link42-au/patch8-data` does not exist yet. Local build work can proceed. |
 | FIRST EPSS | **disabled** | Direct display awaits a version-2 source-policy decision; dataset republication remains prohibited. |

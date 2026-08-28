@@ -38,6 +38,7 @@
       "!**/*.svelte",
       "!LICENSE",
       "!contracts/**/*.json",
+      "!apps/web/src/lib/dataset/fixtures/*.json",
       "!docs/licensing/source-policy.json",
       "!scripts/validate-dataset-contract.mjs"
     ]

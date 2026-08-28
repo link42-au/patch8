@@ -7,11 +7,15 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite dev",
+    "fixtures:build": "node scripts/build-p2-fixtures.mjs",
+    "fixtures:check": "node scripts/build-p2-fixtures.mjs --check",
+    "proof:build": "vite build --config vite.p2.config.ts",
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
+    "@duckdb/duckdb-wasm": "1.32.0",
     "@link42/tokens": "workspace:*",
     "@link42/ui": "workspace:*",
     "@patch8/shared": "workspace:*",
@@ -23,6 +27,7 @@
     "@sveltejs/vite-plugin-svelte": "5.1.1",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/svelte": "5.2.9",
+    "hyparquet-writer": "0.16.8",
     "jsdom": "30.0.1",
     "svelte-check": "4.3.4",
     "vite": "6.4.3",

@@ -62,7 +62,7 @@ for (const file of files) {
       throw new Error(`Secret-like runtime configuration reference: ${path}`);
     }
     if (path.startsWith("apps/web/src/") && /\bfetch\s*\(/.test(source)) {
-      throw new Error(`P1 must not make runtime data requests: ${path}`);
+      throw new Error(`Static browser code must not bypass the dataset runtime with fetch: ${path}`);
     }
     if (path.startsWith(".github/") && /\bsecrets\./.test(source)) {
       throw new Error(`Public Pages workflow must not depend on repository secrets: ${path}`);
@@ -71,5 +71,5 @@ for (const file of files) {
 }
 
 console.log(
-  `Architecture verified: ${files.length} source files, static client only, no runtime data request or secret.`,
+  `Architecture verified: ${files.length} source files, static client only, no backend fetch or runtime secret.`,
 );

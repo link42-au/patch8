@@ -1,0 +1,72 @@
+{
+  "manifest_version": 0,
+  "fixture_only": true,
+  "release_id": "p2-current",
+  "generated_at": "2026-08-28T00:00:00Z",
+  "rights_policy_version": "p2-synthetic-1",
+  "max_query_bytes": 32768,
+  "previous_release": "p2-previous",
+  "artifacts": [
+    {
+      "id": "cves-2026-10",
+      "path": "current-vulnerabilities-2026-10.parquet",
+      "table": "vulnerabilities",
+      "bytes": 2393,
+      "sha256": "ab4384f4172a852f844d4f0a103d5bca629dcf65bf6dfdb84b0c8e63239f0932",
+      "route": {
+        "cve_year": 2026,
+        "cve_bucket": "10"
+      }
+    },
+    {
+      "id": "cves-2026-20",
+      "path": "current-vulnerabilities-2026-20.parquet",
+      "table": "vulnerabilities",
+      "bytes": 2050,
+      "sha256": "77d2ecf8d75be5bdcbb47d7e3a4cf9bd2eeac30b812f3c312fe1d5ca79ff16f6",
+      "route": {
+        "cve_year": 2026,
+        "cve_bucket": "20"
+      }
+    },
+    {
+      "id": "software-2026-10",
+      "path": "current-software-2026-10.parquet",
+      "table": "affected_software",
+      "bytes": 1145,
+      "sha256": "13fa0db9367d4b5789be85e7949e6671085d45f1a1b83de436e66e4e0576c802",
+      "route": {
+        "cve_year": 2026,
+        "cve_bucket": "10",
+        "vendor_buckets": [
+          "ac",
+          "be"
+        ]
+      }
+    },
+    {
+      "id": "software-2026-20",
+      "path": "current-software-2026-20.parquet",
+      "table": "affected_software",
+      "bytes": 1014,
+      "sha256": "a316f1a48367ddb88a7f2658ce8ece22b97531873924c2be23650b17da321a39",
+      "route": {
+        "cve_year": 2026,
+        "cve_bucket": "20",
+        "vendor_buckets": [
+          "ac"
+        ]
+      }
+    },
+    {
+      "id": "kev-current",
+      "path": "current-kev.parquet",
+      "table": "kev",
+      "bytes": 1103,
+      "sha256": "9cb7b8103b5496e06ef568b0f8b92877eb730513d171e9413ac5d433004baa0c",
+      "route": {
+        "global": true
+      }
+    }
+  ]
+}

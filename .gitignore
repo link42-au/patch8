@@ -1,6 +1,7 @@
 node_modules/
 .svelte-kit/
 apps/web/build/
+apps/web/.p2-proof/
 playwright-report/
 test-results/
 .DS_Store

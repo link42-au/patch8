@@ -5,7 +5,7 @@ test("legacy Patch8 shell is honest, responsive, and accessible", async ({ page 
   const runtimeRequests: string[] = [];
   page.on("request", (request) => {
     const url = new URL(request.url());
-    if (url.origin !== "http://127.0.0.1:4173") runtimeRequests.push(request.url());
+    if (url.origin !== "http://127.0.0.1:4187") runtimeRequests.push(request.url());
   });
 
   await page.goto("/");

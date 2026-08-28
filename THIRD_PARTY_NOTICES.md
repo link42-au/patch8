@@ -9,6 +9,9 @@ Patch8 is licensed under AGPL-3.0-or-later. Third-party dependencies and assets 
   text is retained in [`LICENSES/OFL-1.1-Geist.txt`](LICENSES/OFL-1.1-Geist.txt) and in the published `fonts/` directory.
 - **Svelte 5.56.10** — MIT. Copyright Svelte contributors.
 - **SvelteKit 2.70.3** and **adapter-static 3.0.10** — MIT. Copyright their contributors.
+- **DuckDB-Wasm 1.32.0 and DuckDB v1.4.3 Parquet extension** — MIT. Copyright DuckDB contributors. Patch8 serves the
+  pinned `wasm_mvp` extension from the application origin; its immutable source, size, digest, and update rule are in
+  [`docs/duckdb-parquet-extension.md`](docs/duckdb-parquet-extension.md).
 
 ## Development-only tooling
 
