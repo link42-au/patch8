@@ -11,7 +11,7 @@ the historical Worker/D1 service with a static SvelteKit application intended fo
 | Static Pages shell | **live-verified** | [Hosted run 33160759689](https://github.com/link42-au/patch8/actions/runs/33160759689) verified the restored legacy interface at [`link42-au.github.io/patch8/`](https://link42-au.github.io/patch8/). This status does not claim data-backed capability. |
 | DuckDB-Wasm data client | **in progress** | Synthetic query-routed Parquet, deterministic fixtures, prepared SQL, corrupt-current fallback, local Chromium/Firefox/Playwright WebKit, and immutable public-HF Chromium range proofs pass without changing the legacy UI. Actual desktop/mobile Safari, cache, and memory evidence remain incomplete; see [`docs/p2-duckdb-proof.md`](docs/p2-duckdb-proof.md). |
 | v1 data and release contracts | **P3c source-complete** | Contract 3 / policy 3.0.0 retains source-specific CVE metadata, the exact CVSS-v2 severity path, and stable KEV identity while representing only actual NVD nodes. It pins live NVD timestamp/delta/reconciliation semantics. Exact schemas, 24 source-policy fixtures, 59 manifest fixtures, and immutable historical/current baselines pass. |
-| Patch8 dataset builder | **planned; not implemented** | P3c clears the live-source representation blocker for the standard-library P4 pipeline. No source adapter or production dataset is claimed by the contract transition. |
+| Patch8 dataset builder | **P4 source-complete** | The standard-library NVD/KEV core has bounded fetches, restartable normalized staging, exact observations/provenance, stable KEV reconciliation, repeated complete NVD reconciliation, atomic activation, and 31 deterministic tests. Live in-memory NVD shape canaries passed without retaining source payloads; no production dataset is claimed. |
 | Public dataset | **P2 canary live-verified; release blocked** | The public, ungated Hugging Face dataset [`link42-au/patch`](https://huggingface.co/datasets/link42-au/patch) serves the synthetic P2 canary anonymously at manifest revision `aa4e13c4564924c12a16720d8bebe57208dfccdd`. It does not yet contain a verified Patch8 vulnerability release; the local full build and scoped publisher write/readback remain pending. |
 | FIRST EPSS | **disabled** | No Link42 fetch, cache, dataset, history, or republication is authorized by v1. |
 | OSV | **disabled for first release** | It awaits an enforceable home-database licence registry. |
@@ -56,6 +56,7 @@ pnpm install --frozen-lockfile
 pnpm check
 pnpm typecheck
 pnpm test
+pnpm test:ingestion
 pnpm build
 pnpm verify:architecture
 pnpm verify:static

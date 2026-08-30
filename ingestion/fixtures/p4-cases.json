@@ -1,0 +1,256 @@
+{
+  "nvd_pages": {
+    "0": {
+      "resultsPerPage": 2,
+      "startIndex": 0,
+      "totalResults": 3,
+      "format": "NVD_CVE",
+      "version": "2.0",
+      "timestamp": "2026-08-29T00:00:00.000Z",
+      "vulnerabilities": [
+        { "cve": { "id": "CVE-2025-1001", "published": "2025-01-01T00:00:00.000Z" } },
+        { "cve": { "id": "CVE-2025-1002", "published": "2025-01-02T00:00:00.000Z" } }
+      ]
+    },
+    "2": {
+      "resultsPerPage": 2,
+      "startIndex": 2,
+      "totalResults": 3,
+      "format": "NVD_CVE",
+      "version": "2.0",
+      "timestamp": "2026-08-29T00:00:01.000Z",
+      "vulnerabilities": [{ "cve": { "id": "CVE-2025-1003", "published": "2025-01-03T00:00:00.000Z" } }]
+    }
+  },
+  "nvd_records": {
+    "rich": {
+      "cve": {
+        "id": "CVE-2025-1001",
+        "sourceIdentifier": "nvd@nist.gov",
+        "published": "2025-01-01T00:00:00.000Z",
+        "lastModified": "2026-08-28T00:00:00.000Z",
+        "vulnStatus": "Analyzed",
+        "descriptions": [{ "lang": "en", "value": "Excluded synthetic description." }],
+        "vendorComments": [{ "organization": "Example", "comment": "Excluded comment." }],
+        "metrics": {
+          "cvssMetricV40": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Primary",
+              "cvssData": {
+                "version": "4.0",
+                "vectorString": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+                "baseScore": 9.3,
+                "baseSeverity": "CRITICAL"
+              }
+            }
+          ],
+          "cvssMetricV31": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Secondary",
+              "cvssData": {
+                "version": "3.1",
+                "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+                "baseScore": 9.8,
+                "baseSeverity": "CRITICAL"
+              }
+            },
+            {
+              "source": "cna@example.invalid",
+              "type": "Secondary",
+              "cvssData": {
+                "version": "3.1",
+                "vectorString": "CVSS:3.1/AV:L/AC:H/PR:H/UI:R/S:U/C:L/I:L/A:L",
+                "baseScore": 3.0,
+                "baseSeverity": "LOW"
+              }
+            }
+          ],
+          "cvssMetricV30": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Secondary",
+              "cvssData": {
+                "version": "3.0",
+                "vectorString": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+                "baseScore": 9.8,
+                "baseSeverity": "CRITICAL"
+              }
+            }
+          ],
+          "cvssMetricV2": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Primary",
+              "baseSeverity": "HIGH",
+              "cvssData": {
+                "version": "2.0",
+                "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+                "baseScore": 7.5
+              }
+            }
+          ]
+        },
+        "weaknesses": [
+          {
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "description": [{ "lang": "en", "value": "CWE-79" }, { "lang": "en", "value": "NVD-CWE-noinfo" }]
+          }
+        ],
+        "references": [
+          {
+            "url": "https://example.invalid/advisories/1001",
+            "source": "nvd@nist.gov",
+            "tags": ["Vendor Advisory"]
+          }
+        ],
+        "configurations": [
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:example:alpha:*:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "11111111-1111-4111-8111-111111111111",
+                    "versionStartIncluding": "1.0",
+                    "versionEndExcluding": "2.0"
+                  }
+                ]
+              },
+              { "operator": "AND", "negate": true, "cpeMatch": [] }
+            ]
+          }
+        ]
+      }
+    },
+    "rich_updated": {
+      "cve": {
+        "id": "CVE-2025-1001",
+        "sourceIdentifier": "nvd@nist.gov",
+        "published": "2025-01-01T00:00:00.000Z",
+        "lastModified": "2026-08-29T00:00:00.000Z",
+        "vulnStatus": "Modified",
+        "metrics": {
+          "cvssMetricV31": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Primary",
+              "cvssData": {
+                "version": "3.1",
+                "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+                "baseScore": 9.8,
+                "baseSeverity": "CRITICAL"
+              }
+            }
+          ]
+        },
+        "weaknesses": [{ "description": [{ "lang": "en", "value": "CWE-79" }] }],
+        "references": [{ "url": "https://example.invalid/advisories/1001", "tags": ["Vendor Advisory"] }],
+        "configurations": [
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:example:alpha:*:*:*:*:*:*:*:*",
+                    "versionStartIncluding": "1.0",
+                    "versionEndIncluding": "2.1"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "second": {
+      "cve": {
+        "id": "CVE-2025-1002",
+        "sourceIdentifier": "nvd@nist.gov",
+        "published": "2025-01-02T00:00:00.000Z",
+        "lastModified": "2026-08-28T00:00:00.000Z",
+        "vulnStatus": "Awaiting Analysis",
+        "metrics": {},
+        "weaknesses": [],
+        "references": [],
+        "configurations": []
+      }
+    }
+  },
+  "kev_initial": {
+    "title": "CISA Catalog of Known Exploited Vulnerabilities",
+    "catalogVersion": "2026.08.28",
+    "dateReleased": "2026-08-28T00:00:00Z",
+    "count": 2,
+    "vulnerabilities": [
+      {
+        "cveID": "CVE-2025-1001",
+        "vendorProject": "Example Org",
+        "product": "Alpha",
+        "vulnerabilityName": "Synthetic Alpha issue",
+        "dateAdded": "2026-08-01",
+        "shortDescription": "Synthetic data for deterministic tests.",
+        "requiredAction": "Apply the fictional update.",
+        "dueDate": "2026-08-22",
+        "knownRansomwareCampaignUse": "Unknown",
+        "notes": "",
+        "cwes": ["CWE-79"]
+      },
+      {
+        "cveID": "CVE-2025-1002",
+        "vendorProject": "Example Org",
+        "product": "Beta",
+        "vulnerabilityName": "Synthetic Beta issue",
+        "dateAdded": "2026-08-02",
+        "shortDescription": "Synthetic data for deterministic tests.",
+        "requiredAction": "Apply the fictional mitigation.",
+        "dueDate": "2026-08-23",
+        "knownRansomwareCampaignUse": "Known",
+        "notes": "Fixture only.",
+        "cwes": ["CWE-89"]
+      }
+    ]
+  },
+  "kev_updated": {
+    "title": "CISA Catalog of Known Exploited Vulnerabilities",
+    "catalogVersion": "2026.08.29",
+    "dateReleased": "2026-08-29T00:00:00Z",
+    "count": 2,
+    "vulnerabilities": [
+      {
+        "cveID": "CVE-2025-1002",
+        "vendorProject": "Example Org",
+        "product": "Beta 2",
+        "vulnerabilityName": "Synthetic Beta issue",
+        "dateAdded": "2026-08-02",
+        "shortDescription": "Synthetic data for deterministic tests.",
+        "requiredAction": "Apply the fictional mitigation.",
+        "dueDate": "2026-08-23",
+        "knownRansomwareCampaignUse": "Known",
+        "notes": "Fixture only.",
+        "cwes": ["CWE-89"]
+      },
+      {
+        "cveID": "CVE-2025-1003",
+        "vendorProject": "Example Org",
+        "product": "Gamma",
+        "vulnerabilityName": "Synthetic Gamma issue",
+        "dateAdded": "2026-08-03",
+        "shortDescription": "Synthetic data for deterministic tests.",
+        "requiredAction": "Apply the fictional update.",
+        "dueDate": "2026-08-24",
+        "knownRansomwareCampaignUse": "Unknown",
+        "notes": "",
+        "cwes": []
+      }
+    ]
+  }
+}
