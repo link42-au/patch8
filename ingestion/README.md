@@ -7,24 +7,29 @@ This directory contains the source-complete P4 NVD/KEV core. It is Python-standa
 
 - `PolicyGate` seals reviewed contract 3 / policy 3.0.0 before an adapter can use
   them. A disabled source, unregistered field, changed same-version policy, or blocked description fails closed.
-- `BoundedJsonClient` permits only the reviewed HTTPS endpoint and enforces explicit request, byte, interval, throttle,
-  retry-after, timeout, and page ceilings. It has no concurrent fan-out and stores no credential or request header.
+- `BoundedJsonClient` permits only the reviewed HTTPS endpoint and enforces explicit request, streamed-byte, interval,
+  throttle, retry-after, socket-timeout, total-deadline, and page ceilings. Acquisition validates declared length before
+  reading, caps streaming at remaining bytes plus one, rejects redirects/final-identity drift, and records the final URL.
 - `NvdPager` implements deterministic full pagination and current `lastModStartDate` / `lastModEndDate` requests. Delta windows use an exact
   two-hour overlap, advance one contiguous watermark, validate NVD's documented
   publish-date order, reject page/total/schema drift, and persist an atomic restart cursor containing hashes and allowed
-  ordering keys but no raw response page.
+  ordering keys but no raw response page. Strict version/invariant/state seals reject forged or conflicting restart
+  state. Two-phase page prepare/checkpoint/promote journaling replays exactly across either atomic-write crash boundary.
 - NVD normalization emits exact source-specific CVE metadata, NIST-authored CVSS v4.0/v3.1/v3.0/v2.0 observations,
   deterministic selected pointers, CWE identifiers, HTTP(S) references, CPE matches, version bounds, and provenance.
-  Official extensible but unapproved fields are ignored and cannot enter output. Source timestamps without offsets are
-  normalized as UTC, matching the API convention.
+  Official extensible but unapproved fields are ignored and cannot enter output. Reference tags are trimmed,
+  deduplicated, and sorted. Source timestamps without offsets are normalized as UTC, matching the API convention.
 - KEV normalization validates the complete official JSON object, declared/actual counts, exact reviewed entry shape,
-  unique CVE IDs, canonical dates/CWEs, exact source bytes, and builder revision. It emits only the contracted
+  unique CVE IDs, canonical dates/numerically sorted CWE sets, newest-first rows, exact source bytes, and builder revision. It emits only the contracted
   `kev_observations`, per-entry provenance, and source snapshot structures.
 - KEV reconciliation records deterministic adds, edits, and removals. Only a complete successful snapshot may yield
   `not_listed`; a missing, failed, or incomplete reconciliation remains `unknown`.
-- The fixture corpus is synthetic and rights-safe. Thirty-one tests cover pagination, zero-result responses, cross-page duplication, restart,
-  repeated complete reconciliation, budgets, throttle handling, schema and ordering drift, watermark gaps/overlap, KEV
-  changes/removals/unknown state, immutable official repository URLs, and clean-snapshot/delta-current equivalence.
+- Full NVD reconciliation has a durable success clock and source-snapshot link. A delta cannot reset it or run after the
+  seven-day maximum; an overdue or failed full reconciliation remains honestly stale and blocks further deltas.
+- The fixture corpus is synthetic and rights-safe. Forty tests cover pagination/overshoot, zero-result responses,
+  cross-page duplication, sealed checkpoint forgery, both page-commit crash boundaries, acquisition/deadline budgets,
+  redirects, throttle handling, canonical lists/order, schema drift, watermark gaps/overlap, full-reconciliation age,
+  KEV changes/removals/unknown state, immutable official repository URLs, and clean/delta equivalence.
 
 `KevPipeline` and `NvdPipeline` are active under contract 3. NVD provides normalized staging, restart,
 full/delta equivalence, and manifest-independent atomic state activation.

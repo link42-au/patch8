@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
+from io import BytesIO
 import json
 from pathlib import Path
 import tempfile
@@ -12,6 +13,7 @@ from ingestion.patch8_ingest import (
     BoundedJsonClient,
     BudgetExceeded,
     FetchLimits,
+    FullReconciliationRequired,
     IngestionError,
     JsonResponse,
     KEV_URL,
@@ -23,6 +25,7 @@ from ingestion.patch8_ingest import (
     PolicyGate,
     SchemaDrift,
     Throttled,
+    UrllibTransport,
     WatermarkError,
     assert_contiguous_window,
     canonical_json,
@@ -31,6 +34,7 @@ from ingestion.patch8_ingest import (
     merge_nvd_state,
     normalize_kev_snapshot,
     normalize_nvd_vulnerabilities,
+    nvd_full_reconciliation_status,
     reconcile_kev,
     require_immutable_kev_repository_url,
     validate_nvd_page,
@@ -49,16 +53,48 @@ class SequenceTransport:
         self.responses = list(responses)
         self.urls = []
         self.timeouts = []
+        self.max_bytes = []
 
-    def get(self, url, headers, *, timeout_seconds):
+    def get(self, url, headers, *, timeout_seconds, max_bytes):
         self.urls.append(url)
         self.timeouts.append(timeout_seconds)
+        self.max_bytes.append(max_bytes)
         if not self.responses:
             raise AssertionError("unexpected request")
         response = self.responses.pop(0)
         if isinstance(response, Exception):
             raise response
-        return response
+        if len(response.body) > max_bytes:
+            raise BudgetExceeded("mock transport refused to acquire beyond the remaining byte budget")
+        return JsonResponse(
+            body=response.body,
+            headers=response.headers,
+            status=response.status,
+            final_url=response.final_url or url,
+        )
+
+
+class FakeHttpResponse:
+    def __init__(self, body, *, content_length=None, final_url=NVD_URL):
+        self.stream = BytesIO(body)
+        self.headers = {} if content_length is None else {"Content-Length": str(content_length)}
+        self.final_url = final_url
+        self.read_sizes = []
+
+    def read(self, size):
+        self.read_sizes.append(size)
+        return self.stream.read(size)
+
+    def geturl(self):
+        return self.final_url
+
+
+class FakeClock:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
 
 
 def response(value, *, status=200, headers=None):
@@ -74,6 +110,7 @@ def client(transport, **overrides):
         minimum_interval_seconds=0,
         max_throttle_responses=overrides.pop("max_throttle_responses", 1),
         max_retry_after_seconds=overrides.pop("max_retry_after_seconds", 1),
+        max_operation_seconds=overrides.pop("max_operation_seconds", 60),
     )
     if overrides:
         raise AssertionError(f"unused overrides: {overrides}")
@@ -119,7 +156,10 @@ class NvdPaginationTests(unittest.TestCase):
             result = NvdPager(client(transport)).run(
                 NvdOperation(mode="full", results_per_page=2),
                 checkpoint,
-                lambda rows, start: accepted.extend((start, row["cve"]["id"]) for row in rows),
+                lambda rows, evidence: (
+                    accepted.extend((evidence["start_index"], row["cve"]["id"]) for row in rows)
+                    or evidence["page_sha256"]
+                ),
             )
             self.assertTrue(result["complete"])
             self.assertEqual(result["next_start_index"], 3)
@@ -140,7 +180,9 @@ class NvdPaginationTests(unittest.TestCase):
                 NvdPager(client(first)).run(
                     operation,
                     checkpoint,
-                    lambda rows, start: accepted.extend(row["cve"]["id"] for row in rows),
+                    lambda rows, evidence: (
+                        accepted.extend(row["cve"]["id"] for row in rows) or evidence["page_sha256"]
+                    ),
                 )
             stored_text = checkpoint.read_text(encoding="utf-8")
             self.assertNotIn("vulnerabilities", stored_text)
@@ -149,7 +191,9 @@ class NvdPaginationTests(unittest.TestCase):
             result = NvdPager(client(second)).run(
                 operation,
                 checkpoint,
-                lambda rows, start: accepted.extend(row["cve"]["id"] for row in rows),
+                lambda rows, evidence: (
+                    accepted.extend(row["cve"]["id"] for row in rows) or evidence["page_sha256"]
+                ),
             )
             self.assertTrue(result["complete"])
             self.assertIn("startIndex=2", second.urls[0])
@@ -161,7 +205,7 @@ class NvdPaginationTests(unittest.TestCase):
             checkpoint.write_text("{}", encoding="utf-8")
             with self.assertRaises(SchemaDrift):
                 NvdPager(client(SequenceTransport([]))).run(
-                    NvdOperation(mode="full", results_per_page=2), checkpoint, lambda rows, start: None
+                    NvdOperation(mode="full", results_per_page=2), checkpoint, lambda rows, evidence: evidence["page_sha256"]
                 )
 
     def test_page_budget_stops_before_an_extra_request(self):
@@ -171,7 +215,7 @@ class NvdPaginationTests(unittest.TestCase):
                 NvdPager(client(transport, max_pages=1)).run(
                     NvdOperation(mode="full", results_per_page=2),
                     Path(directory) / "nvd.json",
-                    lambda rows, start: None,
+                    lambda rows, evidence: evidence["page_sha256"],
                 )
         self.assertEqual(len(transport.urls), 1)
 
@@ -181,10 +225,98 @@ class NvdPaginationTests(unittest.TestCase):
         with self.assertRaisesRegex(BudgetExceeded, "byte"):
             bounded.get(f"{NVD_URL}?startIndex=0", expected_url=NVD_URL)
         self.assertEqual(transport.timeouts, [1])
+        self.assertEqual(transport.max_bytes, [8])
         request_client = client(SequenceTransport([response({})]), max_requests=1)
         request_client.get(f"{NVD_URL}?startIndex=0", expected_url=NVD_URL)
         with self.assertRaisesRegex(BudgetExceeded, "request"):
             request_client.get(f"{NVD_URL}?startIndex=1", expected_url=NVD_URL)
+
+    def test_transport_rejects_declared_and_streamed_excess_before_allocation(self):
+        declared = FakeHttpResponse(b"unused", content_length=9)
+        with self.assertRaisesRegex(BudgetExceeded, "declared response length"):
+            UrllibTransport._read_bounded(declared, 8)
+        self.assertEqual(declared.read_sizes, [])
+
+        streamed = FakeHttpResponse(b"123456789")
+        with self.assertRaisesRegex(BudgetExceeded, "streamed response"):
+            UrllibTransport._read_bounded(streamed, 8)
+        self.assertEqual(streamed.read_sizes, [9])
+
+        exact = FakeHttpResponse(b"12345678", content_length=8)
+        self.assertEqual(UrllibTransport._read_bounded(exact, 8), b"12345678")
+        self.assertTrue(all(size <= 9 for size in exact.read_sizes))
+
+    def test_redirected_final_url_is_rejected_and_exact_identity_is_recorded(self):
+        redirected = response(FIXTURES["nvd_pages"]["0"])
+        redirected = JsonResponse(
+            body=redirected.body,
+            headers=redirected.headers,
+            status=redirected.status,
+            final_url="https://example.invalid/rest/json/cves/2.0",
+        )
+        transport = SequenceTransport([redirected])
+        with self.assertRaisesRegex(IngestionError, "final response URL"):
+            client(transport).get(NVD_URL, expected_url=NVD_URL)
+
+    def test_total_wall_clock_deadline_covers_response_page_application_and_retry(self):
+        clock = FakeClock()
+
+        class SlowTransport(SequenceTransport):
+            def get(self, *args, **kwargs):
+                result = super().get(*args, **kwargs)
+                clock.now = 2
+                return result
+
+        limits = FetchLimits(
+            max_requests=2,
+            max_bytes=1_000_000,
+            max_pages=2,
+            timeout_seconds=1,
+            minimum_interval_seconds=0,
+            max_throttle_responses=0,
+            max_retry_after_seconds=0,
+            max_operation_seconds=1,
+        )
+        bounded = BoundedJsonClient(SlowTransport([response(FIXTURES["nvd_pages"]["0"])]), limits, sleep=lambda _: None, monotonic=clock)
+        with self.assertRaisesRegex(BudgetExceeded, "deadline"):
+            bounded.get(NVD_URL, expected_url=NVD_URL)
+
+        clock = FakeClock()
+        bounded = BoundedJsonClient(
+            SequenceTransport([response(nvd_page([FIXTURES["nvd_records"]["rich"]], page_size=1))]),
+            limits,
+            sleep=lambda _: None,
+            monotonic=clock,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(BudgetExceeded, "checkpoint write"):
+                NvdPager(bounded).run(
+                    NvdOperation(mode="full", results_per_page=1),
+                    Path(directory) / "deadline.json",
+                    lambda rows, evidence: (
+                        setattr(clock, "now", 2) or evidence["page_sha256"]
+                    ),
+                )
+
+        clock = FakeClock()
+        retry_limits = FetchLimits(
+            max_requests=2,
+            max_bytes=1_000,
+            max_pages=1,
+            timeout_seconds=1,
+            minimum_interval_seconds=0,
+            max_throttle_responses=1,
+            max_retry_after_seconds=1,
+            max_operation_seconds=0.5,
+        )
+        retrying = BoundedJsonClient(
+            SequenceTransport([response({}, status=429, headers={"retry-after": "1"})]),
+            retry_limits,
+            sleep=lambda seconds: setattr(clock, "now", clock.now + seconds),
+            monotonic=clock,
+        )
+        with self.assertRaisesRegex(BudgetExceeded, "throttle retry"):
+            retrying.get(NVD_URL, expected_url=NVD_URL)
 
     def test_throttling_retries_only_within_explicit_bound(self):
         transport = SequenceTransport(
@@ -211,6 +343,13 @@ class NvdPaginationTests(unittest.TestCase):
         reversed_page["vulnerabilities"].reverse()
         with self.assertRaisesRegex(SchemaDrift, "not ordered"):
             validate_nvd_page(reversed_page, expected_start=0, requested_page_size=2)
+        overshoot = nvd_page(
+            [FIXTURES["nvd_records"]["rich"], FIXTURES["nvd_records"]["second"]],
+            total=1,
+            page_size=2,
+        )
+        with self.assertRaisesRegex(SchemaDrift, "overshoots"):
+            validate_nvd_page(overshoot, expected_start=0, requested_page_size=2)
         changed_total = deepcopy(FIXTURES["nvd_pages"]["2"])
         changed_total["totalResults"] = 4
         with tempfile.TemporaryDirectory() as directory:
@@ -220,7 +359,7 @@ class NvdPaginationTests(unittest.TestCase):
                 ).run(
                     NvdOperation(mode="full", results_per_page=2),
                     Path(directory) / "nvd.json",
-                    lambda rows, start: None,
+                    lambda rows, evidence: evidence["page_sha256"],
                 )
 
     def test_official_zero_result_shape_and_timezone_less_timestamp_are_accepted(self):
@@ -272,6 +411,12 @@ class NvdNormalizationTests(unittest.TestCase):
         self.assertEqual((affected["vendor"], affected["product"], affected["version"]), ("example", "alpha", None))
         self.assertEqual((affected["version_start_including"], affected["version_end_excluding"]), ("1.0", "2.0"))
         self.assertEqual(affected["node_id"], children[0]["node_id"])
+
+    def test_reference_tags_are_trimmed_deduplicated_and_sorted(self):
+        record = deepcopy(FIXTURES["nvd_records"]["rich"])
+        record["cve"]["references"][0]["tags"] = [" Vendor Advisory ", "Patch", "Patch"]
+        normalized = normalize_nvd_vulnerabilities([record])
+        self.assertEqual(normalized["references"][0]["tags"], ["Patch", "Vendor Advisory"])
 
     def test_malformed_consumed_shape_identifier_reference_and_conflicting_bounds_fail_closed(self):
         cases = []
@@ -347,6 +492,10 @@ class NvdNormalizationTests(unittest.TestCase):
             )
             self.assertEqual(activated["known_cve_ids"], ["CVE-2025-1001", "CVE-2025-1002"])
             self.assertEqual(set(activated["source_snapshot"]), set(PolicyGate.load().contract["tables"]["source_snapshots"]))
+            self.assertEqual(len(activated["acquisition_evidence"]["final_urls"]), 2)
+            self.assertTrue(
+                all(url.startswith(NVD_URL) for url in activated["acquisition_evidence"]["final_urls"])
+            )
             self.assertEqual(activated, json.loads(state.read_text(encoding="utf-8")))
             self.assertFalse(checkpoint.exists())
             self.assertEqual(list(Path(directory).glob("*.staging")), [])
@@ -386,6 +535,107 @@ class NvdNormalizationTests(unittest.TestCase):
                     retrieved_at=NOW,
                     builder_source_revision=BUILDER_REVISION,
                 )
+            self.assertFalse(state.exists())
+
+    def test_page_application_recovers_exactly_from_both_atomic_crash_boundaries(self):
+        rich = FIXTURES["nvd_records"]["rich"]
+        second = FIXTURES["nvd_records"]["second"]
+        operation = NvdOperation(mode="full", results_per_page=1)
+        for crash_stage in ("after_staging_write", "after_checkpoint_write"):
+            with self.subTest(crash_stage=crash_stage), tempfile.TemporaryDirectory() as directory:
+                checkpoint = Path(directory) / "checkpoint.json"
+                state = Path(directory) / "state.json"
+                crashed = False
+
+                def inject(stage):
+                    nonlocal crashed
+                    if stage == crash_stage and not crashed:
+                        crashed = True
+                        raise RuntimeError(f"injected {stage}")
+
+                with self.assertRaisesRegex(RuntimeError, crash_stage):
+                    NvdPipeline(
+                        client(SequenceTransport([response(nvd_page([rich], total=2, page_size=1))]))
+                    ).run(
+                        operation,
+                        checkpoint_path=checkpoint,
+                        state_path=state,
+                        retrieved_at=NOW,
+                        builder_source_revision=BUILDER_REVISION,
+                        crash_hook=inject,
+                    )
+                self.assertFalse(state.exists())
+                restart_responses = [response(nvd_page([second], start=1, total=2, page_size=1))]
+                if crash_stage == "after_staging_write":
+                    restart_responses.insert(0, response(nvd_page([rich], total=2, page_size=1)))
+                recovered = NvdPipeline(client(SequenceTransport(restart_responses))).run(
+                    operation,
+                    checkpoint_path=checkpoint,
+                    state_path=state,
+                    retrieved_at=NOW,
+                    builder_source_revision=BUILDER_REVISION,
+                )
+                self.assertEqual(recovered["known_cve_ids"], ["CVE-2025-1001", "CVE-2025-1002"])
+
+    def test_forged_complete_checkpoint_and_staging_never_activate_without_validation(self):
+        rich = FIXTURES["nvd_records"]["rich"]
+        operation = NvdOperation(mode="full", results_per_page=1)
+        with tempfile.TemporaryDirectory() as directory:
+            checkpoint = Path(directory) / "checkpoint.json"
+            state = Path(directory) / "state.json"
+
+            def crash_after_checkpoint(stage):
+                if stage == "after_checkpoint_write":
+                    raise RuntimeError("injected complete checkpoint crash")
+
+            with self.assertRaisesRegex(RuntimeError, "complete checkpoint"):
+                NvdPipeline(
+                    client(SequenceTransport([response(nvd_page([rich], page_size=1))]))
+                ).run(
+                    operation,
+                    checkpoint_path=checkpoint,
+                    state_path=state,
+                    retrieved_at=NOW,
+                    builder_source_revision=BUILDER_REVISION,
+                    crash_hook=crash_after_checkpoint,
+                )
+            staging_path = next(Path(directory).glob("*.staging"))
+            staging = json.loads(staging_path.read_text(encoding="utf-8"))
+            staging["pending_page"]["result_state"]["known_cve_ids"] = ["CVE-2025-9999"]
+            forged_seal = sha256(
+                canonical_json(staging["pending_page"]["result_state"])
+            ).hexdigest()
+            staging["pending_page"]["result_state_sha256"] = forged_seal
+            staging_path.write_text(json.dumps(staging), encoding="utf-8")
+            forged_checkpoint = json.loads(checkpoint.read_text(encoding="utf-8"))
+            forged_checkpoint["normalized_state_sha256"] = forged_seal
+            forged_checkpoint["staging_commit_sha256"] = sha256(
+                canonical_json(
+                    {
+                        "format": "patch8-p4-nvd-staging-v2",
+                        "operation_id": forged_checkpoint["operation_id"],
+                        "accepted_cve_ids": sorted(
+                            cve_id
+                            for page in forged_checkpoint["applied_pages"]
+                            for cve_id in page["cve_ids"]
+                        ),
+                        "committed_pages": forged_checkpoint["applied_pages"],
+                        "normalized_state_sha256": forged_seal,
+                    }
+                )
+            ).hexdigest()
+            checkpoint.write_text(json.dumps(forged_checkpoint), encoding="utf-8")
+
+            transport = SequenceTransport([])
+            with self.assertRaisesRegex(SchemaDrift, "known CVE identities"):
+                NvdPipeline(client(transport)).run(
+                    operation,
+                    checkpoint_path=checkpoint,
+                    state_path=state,
+                    retrieved_at=NOW,
+                    builder_source_revision=BUILDER_REVISION,
+                )
+            self.assertEqual(transport.urls, [])
             self.assertFalse(state.exists())
 
     def test_pipeline_applies_exact_overlapping_modified_window_to_prior_state(self):
@@ -453,6 +703,103 @@ class WatermarkTests(unittest.TestCase):
                 window_end=last,
             )
 
+    def test_complete_reconciliation_clock_is_durable_and_deltas_cannot_reset_it(self):
+        rich = FIXTURES["nvd_records"]["rich"]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / "state.json"
+            pipeline = NvdPipeline(
+                client(SequenceTransport([response(nvd_page([rich], page_size=1))]))
+            )
+            full = pipeline.run(
+                NvdOperation(mode="full", results_per_page=1),
+                checkpoint_path=Path(directory) / "full.json",
+                state_path=state,
+                retrieved_at=NOW,
+                builder_source_revision=BUILDER_REVISION,
+            )
+            self.assertEqual(
+                nvd_full_reconciliation_status(full, observed_at=NOW)["status"],
+                "current",
+            )
+            original_full = deepcopy(full["full_reconciliation"])
+            delta_end = NOW + timedelta(days=1)
+            delta = NvdPipeline(
+                client(SequenceTransport([response(nvd_page([rich], page_size=1))]))
+            ).run(
+                next_delta_operation(NOW, delta_end, results_per_page=1),
+                checkpoint_path=Path(directory) / "delta.json",
+                state_path=state,
+                retrieved_at=delta_end,
+                builder_source_revision=BUILDER_REVISION,
+            )
+            self.assertEqual(delta["full_reconciliation"], original_full)
+
+            overdue_transport = SequenceTransport([])
+            with self.assertRaisesRegex(FullReconciliationRequired, "complete NVD reconciliation"):
+                NvdPipeline(client(overdue_transport)).run(
+                    next_delta_operation(delta_end, NOW + timedelta(days=8), results_per_page=1),
+                    checkpoint_path=Path(directory) / "overdue.json",
+                    state_path=state,
+                    retrieved_at=NOW + timedelta(days=8),
+                    builder_source_revision=BUILDER_REVISION,
+                )
+            self.assertEqual(overdue_transport.urls, [])
+            self.assertEqual(
+                nvd_full_reconciliation_status(delta, observed_at=NOW + timedelta(days=8))["status"],
+                "stale",
+            )
+
+    def test_successful_full_resets_clock_while_failed_full_leaves_overdue_state_blocked(self):
+        rich = FIXTURES["nvd_records"]["rich"]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / "state.json"
+            checkpoint = Path(directory) / "checkpoint.json"
+            first = NvdPipeline(
+                client(SequenceTransport([response(nvd_page([rich], page_size=1))]))
+            ).run(
+                NvdOperation(mode="full", results_per_page=1),
+                checkpoint_path=checkpoint,
+                state_path=state,
+                retrieved_at=NOW,
+                builder_source_revision=BUILDER_REVISION,
+            )
+            refreshed_at = NOW + timedelta(days=8)
+            refreshed = NvdPipeline(
+                client(SequenceTransport([response(nvd_page([rich], page_size=1))]))
+            ).run(
+                NvdOperation(mode="full", results_per_page=1),
+                checkpoint_path=checkpoint,
+                state_path=state,
+                retrieved_at=refreshed_at,
+                builder_source_revision=BUILDER_REVISION,
+            )
+            self.assertNotEqual(refreshed["full_reconciliation"], first["full_reconciliation"])
+            before_failure = state.read_bytes()
+            with self.assertRaisesRegex(IngestionError, "HTTP 500"):
+                NvdPipeline(client(SequenceTransport([response({}, status=500)]))).run(
+                    NvdOperation(mode="full", results_per_page=1),
+                    checkpoint_path=checkpoint,
+                    state_path=state,
+                    retrieved_at=refreshed_at + timedelta(days=8),
+                    builder_source_revision=BUILDER_REVISION,
+                )
+            self.assertEqual(state.read_bytes(), before_failure)
+            last_watermark = datetime.fromisoformat(
+                refreshed["source_snapshot"]["last_successful_watermark"].replace("Z", "+00:00")
+            )
+            with self.assertRaises(FullReconciliationRequired):
+                NvdPipeline(client(SequenceTransport([]))).run(
+                    next_delta_operation(
+                        last_watermark,
+                        refreshed_at + timedelta(days=8),
+                        results_per_page=1,
+                    ),
+                    checkpoint_path=Path(directory) / "blocked-delta.json",
+                    state_path=state,
+                    retrieved_at=refreshed_at + timedelta(days=8),
+                    builder_source_revision=BUILDER_REVISION,
+                )
+
 
 class KevTests(unittest.TestCase):
     def normalize(self, name):
@@ -480,6 +827,19 @@ class KevTests(unittest.TestCase):
         self.assertEqual(set(first["provenance"][0]), set(contract["tables"]["provenance"]))
         self.assertEqual(set(first["source_snapshot"]), set(contract["tables"]["source_snapshots"]))
 
+    def test_cwes_are_validated_deduplicated_numerically_sorted_and_rows_are_newest_first(self):
+        payload = deepcopy(FIXTURES["kev_initial"])
+        payload["vulnerabilities"][0]["cwes"] = ["CWE-79", "CWE-10", "CWE-79"]
+        normalized = normalize_kev_snapshot(
+            canonical_json(payload),
+            retrieved_at=NOW,
+            builder_source_revision=BUILDER_REVISION,
+        )
+        by_cve = {row["cve_id"]: row for row in normalized["kev_observations"]}
+        self.assertEqual(by_cve["CVE-2025-1001"]["cwe_ids"], ["CWE-10", "CWE-79"])
+        dates = [row["date_added"] for row in normalized["kev_observations"]]
+        self.assertEqual(dates, sorted(dates, reverse=True))
+
     def test_pipeline_activates_complete_snapshot_and_failed_refresh_preserves_state(self):
         initial_bytes = canonical_json(FIXTURES["kev_initial"])
         malformed = deepcopy(FIXTURES["kev_updated"])
@@ -496,6 +856,7 @@ class KevTests(unittest.TestCase):
             )
             before = state_path.read_bytes()
             self.assertEqual(activated, json.loads(before))
+            self.assertEqual(activated["acquisition_evidence"]["final_url"], KEV_URL)
             with self.assertRaises(SchemaDrift):
                 pipeline.run(
                     source_url=KEV_URL,

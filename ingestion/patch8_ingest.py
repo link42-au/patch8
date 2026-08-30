@@ -32,6 +32,8 @@ EXPECTED_CONTRACT_SHA256 = "fa29dcb956c0fb01e55b4926b3762685c4d1784aeedb91a6a82c
 CVE_RE = re.compile(r"^CVE-(1999|2\d{3})-[1-9]\d{3,}$")
 CWE_RE = re.compile(r"^CWE-[1-9]\d*$")
 HEX_40_RE = re.compile(r"^[0-9a-f]{40}$")
+HEX_64_RE = re.compile(r"^[0-9a-f]{64}$")
+FULL_RECONCILIATION_MAX_AGE = timedelta(days=7)
 
 
 class IngestionError(RuntimeError):
@@ -56,6 +58,10 @@ class Throttled(IngestionError):
 
 class WatermarkError(IngestionError):
     """Raised for a non-contiguous or insufficiently overlapping delta window."""
+
+
+class FullReconciliationRequired(WatermarkError):
+    """Raised when a delta cannot substitute for an overdue complete NVD reconciliation."""
 
 
 def canonical_json(value: Any) -> bytes:
@@ -169,12 +175,15 @@ class FetchLimits:
     minimum_interval_seconds: float = 6.0
     max_throttle_responses: int = 2
     max_retry_after_seconds: float = 60.0
+    max_operation_seconds: float = 21_600.0
 
     def __post_init__(self) -> None:
         if min(self.max_requests, self.max_bytes, self.max_pages) < 1:
             raise ValueError("request, byte, and page limits must be positive")
         if min(self.timeout_seconds, self.minimum_interval_seconds, self.max_retry_after_seconds) < 0:
             raise ValueError("time limits cannot be negative")
+        if self.max_operation_seconds <= 0:
+            raise ValueError("operation deadline must be positive")
 
 
 @dataclass(frozen=True)
@@ -182,6 +191,7 @@ class JsonResponse:
     body: bytes
     headers: Mapping[str, str]
     status: int = 200
+    final_url: str | None = None
 
     def json(self) -> Any:
         try:
@@ -197,31 +207,66 @@ class JsonTransport(Protocol):
         headers: Mapping[str, str],
         *,
         timeout_seconds: float,
+        max_bytes: int,
     ) -> JsonResponse: ...
 
 
 class UrllibTransport:
+    @staticmethod
+    def _read_bounded(response: Any, max_bytes: int) -> bytes:
+        content_length = response.headers.get("Content-Length")
+        if content_length is not None:
+            try:
+                declared = int(content_length)
+            except ValueError as error:
+                raise SchemaDrift("source returned an invalid Content-Length header") from error
+            if declared < 0:
+                raise SchemaDrift("source returned a negative Content-Length header")
+            if declared > max_bytes:
+                raise BudgetExceeded("declared response length exceeds the remaining byte budget")
+        chunks: list[bytes] = []
+        acquired = 0
+        while True:
+            chunk = response.read(min(64 * 1024, max_bytes - acquired + 1))
+            if not chunk:
+                return b"".join(chunks)
+            acquired += len(chunk)
+            if acquired > max_bytes:
+                raise BudgetExceeded("streamed response exceeds the remaining byte budget")
+            chunks.append(chunk)
+
+    @staticmethod
+    def _final_url(response: Any, requested_url: str) -> str:
+        final_url = response.geturl()
+        if final_url != requested_url:
+            raise IngestionError("source redirected outside the exact reviewed request URL")
+        return final_url
+
     def get(
         self,
         url: str,
         headers: Mapping[str, str],
         *,
         timeout_seconds: float,
+        max_bytes: int,
     ) -> JsonResponse:
         request = Request(url, headers=dict(headers), method="GET")
         try:
             with urlopen(request, timeout=timeout_seconds) as response:  # noqa: S310 - exact URLs are gated
+                final_url = self._final_url(response, url)
                 return JsonResponse(
-                    body=response.read(),
+                    body=self._read_bounded(response, max_bytes),
                     headers={key.lower(): value for key, value in response.headers.items()},
                     status=response.status,
+                    final_url=final_url,
                 )
         except HTTPError as error:
-            body = error.read()
+            final_url = self._final_url(error, url)
             return JsonResponse(
-                body=body,
+                body=self._read_bounded(error, max_bytes),
                 headers={key.lower(): value for key, value in error.headers.items()},
                 status=error.code,
+                final_url=final_url,
             )
         except URLError as error:
             raise IngestionError(f"source request failed: {error.reason}") from error
@@ -244,8 +289,20 @@ class BoundedJsonClient:
         self.bytes = 0
         self.throttles = 0
         self._last_request_at: float | None = None
+        self._operation_started_at = self.monotonic()
 
-    def get(self, url: str, *, expected_url: str, headers: Mapping[str, str] | None = None) -> JsonResponse:
+    def ensure_within_deadline(self, stage: str) -> None:
+        if self.monotonic() - self._operation_started_at > self.limits.max_operation_seconds:
+            raise BudgetExceeded(f"operation deadline exceeded before {stage}")
+
+    def get(
+        self,
+        url: str,
+        *,
+        expected_url: str,
+        headers: Mapping[str, str] | None = None,
+        max_response_bytes: int | None = None,
+    ) -> JsonResponse:
         parsed = urlparse(url)
         expected = urlparse(expected_url)
         if parsed.scheme != "https" or (parsed.scheme, parsed.netloc, parsed.path) != (
@@ -255,21 +312,40 @@ class BoundedJsonClient:
         ):
             raise IngestionError("request URL is outside the reviewed HTTPS source")
         while True:
+            self.ensure_within_deadline("request")
             if self.requests >= self.limits.max_requests:
                 raise BudgetExceeded("request budget exhausted")
+            remaining_bytes = self.limits.max_bytes - self.bytes
+            if max_response_bytes is not None:
+                if max_response_bytes <= 0:
+                    raise BudgetExceeded("operation response-byte budget exhausted")
+                remaining_bytes = min(remaining_bytes, max_response_bytes)
+            if remaining_bytes <= 0:
+                raise BudgetExceeded("response-byte budget exhausted")
             now = self.monotonic()
             if self._last_request_at is not None:
                 delay = self.limits.minimum_interval_seconds - (now - self._last_request_at)
                 if delay > 0:
                     self.sleep(delay)
+                    self.ensure_within_deadline("rate-limited request")
             response = self.transport.get(
                 url,
                 headers or {},
                 timeout_seconds=self.limits.timeout_seconds,
+                max_bytes=remaining_bytes,
             )
+            final_url = response.final_url or url
+            final = urlparse(final_url)
+            if final_url != url or (final.scheme, final.netloc, final.path) != (
+                expected.scheme,
+                expected.netloc,
+                expected.path,
+            ):
+                raise IngestionError("final response URL differs from the exact reviewed request identity")
             self._last_request_at = self.monotonic()
             self.requests += 1
             self.bytes += len(response.body)
+            self.ensure_within_deadline("response handling")
             if self.bytes > self.limits.max_bytes:
                 raise BudgetExceeded("response-byte budget exceeded")
             if response.status in {429, 503}:
@@ -286,6 +362,7 @@ class BoundedJsonClient:
                 ):
                     raise Throttled("source throttling exceeded the configured retry bound")
                 self.sleep(retry_after)
+                self.ensure_within_deadline("throttle retry")
                 continue
             if response.status != 200:
                 raise IngestionError(f"source returned HTTP {response.status}")
@@ -310,28 +387,154 @@ def atomic_write_json(path: Path, value: Any) -> None:
         raise
 
 
-def load_checkpoint(path: Path) -> Mapping[str, Any] | None:
+def load_checkpoint(
+    path: Path,
+    *,
+    operation: "NvdOperation | None" = None,
+    limits: FetchLimits | None = None,
+) -> Mapping[str, Any] | None:
     if not path.exists():
         return None
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise IngestionError("checkpoint is unreadable or corrupt") from error
-    return require_keys(
+    checkpoint = require_keys(
         value,
         field="checkpoint",
-        required={"checkpoint_version", "operation_id", "next_start_index", "page_hashes", "complete"},
+        required={
+            "checkpoint_version",
+            "operation_id",
+            "next_start_index",
+            "page_hashes",
+            "applied_pages",
+            "final_urls",
+            "complete",
+            "total_results",
+            "last_ordering_key",
+            "response_bytes",
+            "normalized_state_sha256",
+            "staging_commit_sha256",
+        },
         allowed={
             "checkpoint_version",
             "operation_id",
             "next_start_index",
             "page_hashes",
+            "applied_pages",
+            "final_urls",
             "complete",
             "total_results",
             "last_ordering_key",
             "response_bytes",
+            "normalized_state_sha256",
+            "staging_commit_sha256",
         },
     )
+    if checkpoint["checkpoint_version"] != 2:
+        raise SchemaDrift("checkpoint version is not supported")
+    if not HEX_64_RE.fullmatch(str(checkpoint["operation_id"])):
+        raise SchemaDrift("checkpoint operation identity is malformed")
+    if operation is not None and checkpoint["operation_id"] != operation.operation_id:
+        raise IngestionError("checkpoint belongs to a different NVD operation")
+    for field in ("next_start_index", "total_results", "response_bytes"):
+        if not isinstance(checkpoint[field], int) or isinstance(checkpoint[field], bool) or checkpoint[field] < 0:
+            raise SchemaDrift(f"checkpoint {field} must be a non-negative integer")
+    if not isinstance(checkpoint["complete"], bool):
+        raise SchemaDrift("checkpoint complete must be a boolean")
+    page_hashes = checkpoint["page_hashes"]
+    applied_pages = checkpoint["applied_pages"]
+    final_urls = checkpoint["final_urls"]
+    if (
+        not isinstance(page_hashes, list)
+        or not page_hashes
+        or any(not isinstance(item, str) or not HEX_64_RE.fullmatch(item) for item in page_hashes)
+        or not isinstance(applied_pages, list)
+        or len(applied_pages) != len(page_hashes)
+        or not isinstance(final_urls, list)
+        or len(final_urls) != len(page_hashes)
+    ):
+        raise SchemaDrift("checkpoint page evidence is malformed")
+    expected_start = 0
+    acquired_bytes = 0
+    for index, evidence in enumerate(applied_pages):
+        page = require_keys(
+            evidence,
+            field=f"checkpoint applied_pages[{index}]",
+            required={"start_index", "next_start_index", "row_count", "cve_ids", "page_sha256", "response_bytes", "final_url"},
+            allowed={"start_index", "next_start_index", "row_count", "cve_ids", "page_sha256", "response_bytes", "final_url"},
+        )
+        for field in ("start_index", "next_start_index", "row_count", "response_bytes"):
+            if not isinstance(page[field], int) or isinstance(page[field], bool) or page[field] < 0:
+                raise SchemaDrift(f"checkpoint page {field} is malformed")
+        if (
+            page["start_index"] != expected_start
+            or page["next_start_index"] != page["start_index"] + page["row_count"]
+            or page["page_sha256"] != page_hashes[index]
+            or page["final_url"] != final_urls[index]
+            or not HEX_64_RE.fullmatch(str(page["page_sha256"]))
+            or page["response_bytes"] == 0
+        ):
+            raise SchemaDrift("checkpoint page sequence or identity is inconsistent")
+        if (
+            not isinstance(page["cve_ids"], list)
+            or len(page["cve_ids"]) != page["row_count"]
+            or len(set(page["cve_ids"])) != len(page["cve_ids"])
+        ):
+            raise SchemaDrift("checkpoint page CVE identities are inconsistent")
+        for cve_id in page["cve_ids"]:
+            require_cve(cve_id, "checkpoint page CVE")
+        if operation is not None and page["final_url"] != operation.url(page["start_index"]):
+            raise SchemaDrift("checkpoint final URL differs from the reviewed operation URL")
+        if page["row_count"] == 0 and not (
+            len(applied_pages) == 1 and checkpoint["total_results"] == 0 and page["start_index"] == 0
+        ):
+            raise SchemaDrift("checkpoint contains a non-terminal empty page")
+        expected_start = page["next_start_index"]
+        acquired_bytes += page["response_bytes"]
+    if (
+        checkpoint["next_start_index"] != expected_start
+        or checkpoint["response_bytes"] != acquired_bytes
+        or checkpoint["next_start_index"] > checkpoint["total_results"]
+        or checkpoint["complete"] != (checkpoint["next_start_index"] == checkpoint["total_results"])
+        or not HEX_64_RE.fullmatch(str(checkpoint["normalized_state_sha256"]))
+        or not HEX_64_RE.fullmatch(str(checkpoint["staging_commit_sha256"]))
+    ):
+        raise SchemaDrift("checkpoint aggregate invariants are inconsistent")
+    accepted_cve_ids = sorted(cve_id for page in applied_pages for cve_id in page["cve_ids"])
+    if len(accepted_cve_ids) != len(set(accepted_cve_ids)):
+        raise SchemaDrift("checkpoint repeats CVE identities across pages")
+    expected_staging_seal = digest(
+        {
+            "format": "patch8-p4-nvd-staging-v2",
+            "operation_id": checkpoint["operation_id"],
+            "accepted_cve_ids": accepted_cve_ids,
+            "committed_pages": applied_pages,
+            "normalized_state_sha256": checkpoint["normalized_state_sha256"],
+        }
+    )
+    if checkpoint["staging_commit_sha256"] != expected_staging_seal:
+        raise SchemaDrift("checkpoint staging seal is inconsistent")
+    ordering = checkpoint["last_ordering_key"]
+    if checkpoint["next_start_index"] == 0:
+        if ordering is not None:
+            raise SchemaDrift("empty checkpoint cannot have an ordering key")
+    elif (
+        not isinstance(ordering, list)
+        or len(ordering) != 2
+        or not isinstance(ordering[0], str)
+        or not isinstance(ordering[1], str)
+    ):
+        raise SchemaDrift("checkpoint ordering key is malformed")
+    else:
+        parse_nvd_instant(ordering[0], "checkpoint ordering")
+        require_cve(ordering[1], "checkpoint ordering CVE")
+    if limits is not None and (
+        len(page_hashes) > min(limits.max_pages, limits.max_requests)
+        or checkpoint["response_bytes"] > limits.max_bytes
+    ):
+        raise BudgetExceeded("checkpoint exceeds the configured operation budget")
+    return checkpoint
 
 
 @dataclass(frozen=True)
@@ -410,6 +613,38 @@ def assert_contiguous_window(
         raise WatermarkError("delta window does not advance the contiguous watermark")
 
 
+def nvd_full_reconciliation_status(
+    state: Mapping[str, Any] | None,
+    *,
+    observed_at: datetime,
+    maximum_age: timedelta = FULL_RECONCILIATION_MAX_AGE,
+) -> Mapping[str, Any]:
+    if observed_at.tzinfo is None:
+        raise ValueError("full reconciliation observation time must be timezone-aware")
+    if maximum_age <= timedelta(0):
+        raise ValueError("full reconciliation maximum age must be positive")
+    reconciliation = (state or {}).get("full_reconciliation")
+    if not isinstance(reconciliation, dict) or set(reconciliation) != {
+        "last_successful_at",
+        "source_snapshot_id",
+        "complete_input_sha256",
+    }:
+        return {"status": "unavailable", "last_successful_at": None, "overdue": True}
+    last_successful = parse_instant(
+        reconciliation["last_successful_at"], "last full NVD reconciliation"
+    )
+    if not HEX_64_RE.fullmatch(str(reconciliation["source_snapshot_id"])) or not HEX_64_RE.fullmatch(
+        str(reconciliation["complete_input_sha256"])
+    ):
+        raise IngestionError("full NVD reconciliation evidence is malformed")
+    overdue = observed_at.astimezone(UTC) > last_successful + maximum_age
+    return {
+        "status": "stale" if overdue else "current",
+        "last_successful_at": instant_text(last_successful),
+        "overdue": overdue,
+    }
+
+
 def validate_nvd_page(value: Any, *, expected_start: int, requested_page_size: int) -> Mapping[str, Any]:
     page = require_keys(
         value,
@@ -433,6 +668,8 @@ def validate_nvd_page(value: Any, *, expected_start: int, requested_page_size: i
         raise SchemaDrift("NVD resultsPerPage is outside the requested bound")
     if not isinstance(vulnerabilities, list) or len(vulnerabilities) > page["resultsPerPage"]:
         raise SchemaDrift("NVD vulnerabilities page is not a bounded array")
+    if page["startIndex"] > page["totalResults"] or page["startIndex"] + len(vulnerabilities) > page["totalResults"]:
+        raise SchemaDrift("NVD page overshoots totalResults")
     if expected_start < page["totalResults"] and not vulnerabilities:
         raise SchemaDrift("NVD returned an empty page before totalResults")
     previous: datetime | None = None
@@ -457,15 +694,21 @@ class NvdPager:
         self,
         operation: NvdOperation,
         checkpoint_path: Path,
-        accept_page: Callable[[list[Mapping[str, Any]], int], None],
+        prepare_page: Callable[[list[Mapping[str, Any]], Mapping[str, Any]], str],
+        commit_page: Callable[[Mapping[str, Any], Mapping[str, Any]], None] | None = None,
+        crash_hook: Callable[[str], None] | None = None,
     ) -> Mapping[str, Any]:
-        checkpoint = load_checkpoint(checkpoint_path)
-        if checkpoint is not None and checkpoint["operation_id"] != operation.operation_id:
-            raise IngestionError("checkpoint belongs to a different NVD operation")
+        checkpoint = load_checkpoint(
+            checkpoint_path,
+            operation=operation,
+            limits=self.client.limits,
+        )
         if checkpoint is not None and checkpoint["complete"] is True:
             return checkpoint
         start_index = int(checkpoint["next_start_index"]) if checkpoint else 0
         page_hashes = list(checkpoint["page_hashes"]) if checkpoint else []
+        applied_pages = list(checkpoint["applied_pages"]) if checkpoint else []
+        final_urls = list(checkpoint["final_urls"]) if checkpoint else []
         total_results = checkpoint.get("total_results") if checkpoint else None
         last_ordering_key = checkpoint.get("last_ordering_key") if checkpoint else None
         page_count = len(page_hashes)
@@ -475,7 +718,12 @@ class NvdPager:
                 raise BudgetExceeded("NVD page budget exhausted")
             if response_bytes >= self.client.limits.max_bytes:
                 raise BudgetExceeded("NVD operation response-byte budget exhausted")
-            response = self.client.get(operation.url(start_index), expected_url=NVD_URL)
+            requested_url = operation.url(start_index)
+            response = self.client.get(
+                requested_url,
+                expected_url=NVD_URL,
+                max_response_bytes=self.client.limits.max_bytes - response_bytes,
+            )
             if response_bytes + len(response.body) > self.client.limits.max_bytes:
                 raise BudgetExceeded("NVD operation response-byte budget exceeded")
             page = validate_nvd_page(
@@ -492,29 +740,73 @@ class NvdPager:
                 first_published = parse_nvd_instant(first_key[0], "NVD page ordering")
                 if first_published < previous_published:
                     raise SchemaDrift("NVD ordering regressed across page boundaries")
-            accept_page(vulnerabilities, start_index)
             next_start = start_index + len(vulnerabilities)
-            page_hashes.append(sha256(response.body).hexdigest())
+            page_hash = sha256(response.body).hexdigest()
+            final_url = response.final_url or requested_url
+            page_evidence = {
+                "start_index": start_index,
+                "next_start_index": next_start,
+                "row_count": len(vulnerabilities),
+                "cve_ids": [item["cve"]["id"] for item in vulnerabilities],
+                "page_sha256": page_hash,
+                "response_bytes": len(response.body),
+                "final_url": final_url,
+            }
+            self.client.ensure_within_deadline("page application")
+            normalized_state_sha256 = prepare_page(vulnerabilities, page_evidence)
+            if not HEX_64_RE.fullmatch(normalized_state_sha256):
+                raise IngestionError("page application did not return a normalized-state seal")
+            self.client.ensure_within_deadline("checkpoint write")
+            if crash_hook is not None:
+                crash_hook("after_staging_write")
+            page_hashes.append(page_hash)
+            applied_pages.append(page_evidence)
+            final_urls.append(final_url)
             response_bytes += len(response.body)
-            complete = next_start >= total_results
+            complete = next_start == total_results
+            final_ordering_key = last_ordering_key
+            if vulnerabilities:
+                final_cve = vulnerabilities[-1]["cve"]
+                final_ordering_key = [final_cve["published"], final_cve["id"]]
             checkpoint = {
-                "checkpoint_version": 1,
+                "checkpoint_version": 2,
                 "operation_id": operation.operation_id,
                 "next_start_index": next_start,
                 "total_results": total_results,
                 "page_hashes": page_hashes,
+                "applied_pages": applied_pages,
+                "final_urls": final_urls,
                 "complete": complete,
+                "last_ordering_key": final_ordering_key,
                 "response_bytes": response_bytes,
+                "normalized_state_sha256": normalized_state_sha256,
             }
-            if vulnerabilities:
-                final_cve = vulnerabilities[-1]["cve"]
-                checkpoint["last_ordering_key"] = [final_cve["published"], final_cve["id"]]
-                last_ordering_key = checkpoint["last_ordering_key"]
+            checkpoint["staging_commit_sha256"] = digest(
+                {
+                    "format": "patch8-p4-nvd-staging-v2",
+                    "operation_id": operation.operation_id,
+                    "accepted_cve_ids": sorted(
+                        cve_id for evidence in applied_pages for cve_id in evidence["cve_ids"]
+                    ),
+                    "committed_pages": applied_pages,
+                    "normalized_state_sha256": normalized_state_sha256,
+                }
+            )
             atomic_write_json(checkpoint_path, checkpoint)
+            if crash_hook is not None:
+                crash_hook("after_checkpoint_write")
+            if commit_page is not None:
+                commit_page(page_evidence, checkpoint)
+            self.client.ensure_within_deadline("page commit")
             start_index = next_start
             page_count += 1
+            last_ordering_key = final_ordering_key
         assert checkpoint is not None
-        return checkpoint
+        return load_checkpoint(
+            checkpoint_path,
+            operation=operation,
+            limits=self.client.limits,
+        ) or checkpoint
 
 
 CVSS_KINDS = (
@@ -872,6 +1164,9 @@ def normalize_nvd_vulnerabilities(
             tags = reference.get("tags", [])
             if not isinstance(tags, list) or any(not isinstance(tag, str) or not tag for tag in tags):
                 raise SchemaDrift(f"NVD {cve_id} reference tags must be strings")
+            tags = sorted({tag.strip() for tag in tags})
+            if "" in tags:
+                raise SchemaDrift(f"NVD {cve_id} reference tags must not be blank")
             accepted_reference = {"url": url, "tags": tags}
             provenance = _nvd_provenance(
                 gate=gate,
@@ -1096,6 +1391,240 @@ def merge_nvd_state(
     }
 
 
+def validate_normalized_nvd_state(state: Any, gate: PolicyGate) -> Mapping[str, Any]:
+    expected_top_level = {
+        "format",
+        *NVD_TABLES,
+        "provenance",
+        "selected_cvss_observation_ids",
+        "known_cve_ids",
+    }
+    if not isinstance(state, dict) or set(state) != expected_top_level:
+        raise SchemaDrift("normalized NVD staging state has unknown or missing keys")
+    if state["format"] != "patch8-p4-nvd-core-v1":
+        raise SchemaDrift("normalized NVD staging state has the wrong format")
+    referenced_provenance: set[str] = set()
+    observed_cves: set[str] = set()
+    observation_ids: set[str] = set()
+    for table in NVD_TABLES:
+        rows = state[table]
+        if not isinstance(rows, list):
+            raise SchemaDrift(f"normalized NVD {table} must be an array")
+        sort_keys = gate.contract["table_keys"][table]["sort_keys"]
+        expected_rows = sorted(
+            rows,
+            key=lambda row: tuple((row[key] is None, row[key]) for key in sort_keys),
+        )
+        if rows != expected_rows:
+            raise SchemaDrift(f"normalized NVD {table} is not deterministically ordered")
+        for row in rows:
+            if not isinstance(row, dict) or set(row) != set(gate.contract["tables"][table]):
+                raise SchemaDrift(f"normalized NVD {table} row differs from contract 3")
+            cve_id = require_cve(row["cve_id"], f"normalized NVD {table}.cve_id")
+            observed_cves.add(cve_id)
+            if row["is_current"] is not True or row["rights_policy_version"] != gate.policy["policy_version"]:
+                raise SchemaDrift(f"normalized NVD {table} row has invalid current/policy state")
+            if row["schema_version"] != 1 or not HEX_64_RE.fullmatch(str(row["provenance_id"])):
+                raise SchemaDrift(f"normalized NVD {table} row has invalid schema/provenance state")
+            values = {
+                key: value
+                for key, value in row.items()
+                if key
+                not in {
+                    "observation_id",
+                    "is_current",
+                    "provenance_id",
+                    "rights_policy_version",
+                    "schema_version",
+                }
+            }
+            if row["observation_id"] != _stable_id(table, values) or row["observation_id"] in observation_ids:
+                raise SchemaDrift(f"normalized NVD {table} observation identity is inconsistent")
+            observation_ids.add(row["observation_id"])
+            referenced_provenance.add(row["provenance_id"])
+    known_cves = state["known_cve_ids"]
+    if (
+        not isinstance(known_cves, list)
+        or known_cves != sorted(set(known_cves))
+        or any(not isinstance(cve_id, str) or not CVE_RE.fullmatch(cve_id) for cve_id in known_cves)
+        or set(known_cves)
+        != {row["cve_id"] for row in state["cve_metadata_observations"]}
+        or not observed_cves.issubset(set(known_cves))
+    ):
+        raise SchemaDrift("normalized NVD known CVE identities are inconsistent")
+    provenance = state["provenance"]
+    if not isinstance(provenance, list):
+        raise SchemaDrift("normalized NVD provenance must be an array")
+    provenance_ids: set[str] = set()
+    for row in provenance:
+        if not isinstance(row, dict) or set(row) != set(gate.contract["tables"]["provenance"]):
+            raise SchemaDrift("normalized NVD provenance row differs from contract 3")
+        try:
+            field_rules = json.loads(row["source_field_rule"])
+        except (TypeError, json.JSONDecodeError) as error:
+            raise SchemaDrift("normalized NVD provenance field rules are malformed") from error
+        identity = {
+            "source_id": row["source_id"],
+            "source_record_path": row["source_record_path"],
+            "source_record_sha256": row["source_record_sha256"],
+            "source_field_rules": field_rules,
+            "author_or_provider": row["author_or_provider"],
+            "transformation_kind": row["transformation_kind"],
+        }
+        if (
+            row["source_id"] != "patch8_nvd"
+            or not HEX_64_RE.fullmatch(str(row["source_record_sha256"]))
+            or row["provenance_id"] != digest(identity)
+            or row["provenance_id"] in provenance_ids
+        ):
+            raise SchemaDrift("normalized NVD provenance identity is inconsistent")
+        provenance_ids.add(row["provenance_id"])
+    if provenance_ids != referenced_provenance:
+        raise SchemaDrift("normalized NVD provenance coverage is inconsistent")
+    selected = state["selected_cvss_observation_ids"]
+    cvss_ids = {row["observation_id"] for row in state["cvss_observations"]}
+    if (
+        not isinstance(selected, dict)
+        or list(selected) != sorted(selected)
+        or not set(selected).issubset(set(known_cves))
+        or any(value not in cvss_ids for value in selected.values())
+    ):
+        raise SchemaDrift("normalized NVD selected CVSS pointers are inconsistent")
+    return state
+
+
+def load_nvd_staging(
+    path: Path,
+    *,
+    operation: NvdOperation,
+    gate: PolicyGate,
+) -> Mapping[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise IngestionError("NVD normalized staging state is unreadable or corrupt") from error
+    staging = require_keys(
+        value,
+        field="NVD normalized staging state",
+        required={"format", "operation_id", "accepted_cve_ids", "committed_pages", "state", "pending_page"},
+        allowed={"format", "operation_id", "accepted_cve_ids", "committed_pages", "state", "pending_page"},
+    )
+    if staging["format"] != "patch8-p4-nvd-staging-v2" or staging["operation_id"] != operation.operation_id:
+        raise IngestionError("NVD normalized staging state belongs to a different operation")
+    accepted = staging["accepted_cve_ids"]
+    if (
+        not isinstance(accepted, list)
+        or accepted != sorted(set(accepted))
+        or any(not isinstance(cve_id, str) or not CVE_RE.fullmatch(cve_id) for cve_id in accepted)
+    ):
+        raise SchemaDrift("NVD staging accepted CVE identities are malformed")
+    if not isinstance(staging["committed_pages"], list):
+        raise SchemaDrift("NVD staging committed page journal is malformed")
+    committed_ids = sorted(
+        cve_id
+        for page in staging["committed_pages"]
+        if isinstance(page, dict) and isinstance(page.get("cve_ids"), list)
+        for cve_id in page["cve_ids"]
+    )
+    if committed_ids != accepted:
+        raise SchemaDrift("NVD staging page journal does not match accepted CVE identities")
+    validate_normalized_nvd_state(staging["state"], gate)
+    pending = staging["pending_page"]
+    if pending is not None:
+        pending = require_keys(
+            pending,
+            field="NVD pending page",
+            required={"evidence", "result_state", "result_state_sha256"},
+            allowed={"evidence", "result_state", "result_state_sha256"},
+        )
+        validate_normalized_nvd_state(pending["result_state"], gate)
+        evidence = pending["evidence"]
+        if not isinstance(evidence, dict) or set(evidence) != {
+            "start_index",
+            "next_start_index",
+            "row_count",
+            "cve_ids",
+            "page_sha256",
+            "response_bytes",
+            "final_url",
+        }:
+            raise SchemaDrift("NVD pending page evidence is malformed")
+        for field in ("start_index", "next_start_index", "row_count", "response_bytes"):
+            if not isinstance(evidence[field], int) or isinstance(evidence[field], bool) or evidence[field] < 0:
+                raise SchemaDrift(f"NVD pending page {field} is malformed")
+        if (
+            evidence["next_start_index"] != evidence["start_index"] + evidence["row_count"]
+            or evidence["response_bytes"] == 0
+            or not HEX_64_RE.fullmatch(str(evidence["page_sha256"]))
+            or evidence["final_url"] != operation.url(evidence["start_index"])
+            or not isinstance(evidence["cve_ids"], list)
+            or len(evidence["cve_ids"]) != evidence["row_count"]
+            or len(set(evidence["cve_ids"])) != len(evidence["cve_ids"])
+        ):
+            raise SchemaDrift("NVD pending page acquisition identity is inconsistent")
+        for cve_id in evidence["cve_ids"]:
+            require_cve(cve_id, "NVD pending page CVE")
+        if pending["result_state_sha256"] != digest(pending["result_state"]):
+            raise SchemaDrift("NVD pending normalized-state seal is inconsistent")
+    return staging
+
+
+def validate_active_nvd_state(state: Any, gate: PolicyGate) -> Mapping[str, Any]:
+    expected = {
+        "format",
+        *NVD_TABLES,
+        "provenance",
+        "selected_cvss_observation_ids",
+        "known_cve_ids",
+        "source_snapshot",
+        "full_reconciliation",
+        "acquisition_evidence",
+    }
+    if not isinstance(state, dict) or set(state) != expected:
+        raise SchemaDrift("existing NVD state has unknown or missing keys")
+    validate_normalized_nvd_state(
+        {key: state[key] for key in {"format", *NVD_TABLES, "provenance", "selected_cvss_observation_ids", "known_cve_ids"}},
+        gate,
+    )
+    snapshot = state["source_snapshot"]
+    if (
+        not isinstance(snapshot, dict)
+        or set(snapshot) != set(gate.contract["tables"]["source_snapshots"])
+        or snapshot["source_id"] != "patch8_nvd"
+        or snapshot["endpoint_or_repository"] != NVD_URL
+        or snapshot["rights_policy_version"] != gate.policy["policy_version"]
+        or snapshot["source_snapshot_id"]
+        != digest({key: value for key, value in snapshot.items() if key != "source_snapshot_id"})
+    ):
+        raise SchemaDrift("existing NVD source snapshot evidence is inconsistent")
+    nvd_full_reconciliation_status(state, observed_at=parse_instant(snapshot["checked_at"], "NVD checked_at"))
+    acquisition = require_keys(
+        state["acquisition_evidence"],
+        field="NVD acquisition evidence",
+        required={"operation_id", "page_hashes", "final_urls", "response_bytes"},
+        allowed={"operation_id", "page_hashes", "final_urls", "response_bytes"},
+    )
+    if (
+        not HEX_64_RE.fullmatch(str(acquisition["operation_id"]))
+        or not isinstance(acquisition["page_hashes"], list)
+        or not acquisition["page_hashes"]
+        or any(not HEX_64_RE.fullmatch(str(value)) for value in acquisition["page_hashes"])
+        or not isinstance(acquisition["final_urls"], list)
+        or len(acquisition["final_urls"]) != len(acquisition["page_hashes"])
+        or any(
+            not isinstance(url, str)
+            or (urlparse(url).scheme, urlparse(url).netloc, urlparse(url).path)
+            != ("https", "services.nvd.nist.gov", "/rest/json/cves/2.0")
+            for url in acquisition["final_urls"]
+        )
+        or not isinstance(acquisition["response_bytes"], int)
+        or isinstance(acquisition["response_bytes"], bool)
+        or acquisition["response_bytes"] < 0
+    ):
+        raise SchemaDrift("existing NVD acquisition evidence is malformed")
+    return state
+
+
 class NvdPipeline:
     """Build and atomically activate a complete or modified NVD core state."""
 
@@ -1111,6 +1640,7 @@ class NvdPipeline:
         state_path: Path,
         retrieved_at: datetime,
         builder_source_revision: str,
+        crash_hook: Callable[[str], None] | None = None,
     ) -> Mapping[str, Any]:
         if not HEX_40_RE.fullmatch(builder_source_revision):
             raise IngestionError("builder source revision must be an immutable 40-character Git commit")
@@ -1120,65 +1650,142 @@ class NvdPipeline:
                 candidate = json.loads(state_path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError) as error:
                 raise IngestionError("existing NVD state is unreadable or corrupt") from error
-            if not isinstance(candidate, dict) or candidate.get("format") != "patch8-p4-nvd-core-v1":
-                raise IngestionError("existing NVD state has the wrong format")
-            prior = candidate
+            prior = validate_active_nvd_state(candidate, self.gate)
         if operation.mode == "modified":
             if prior is None or not isinstance(prior.get("source_snapshot"), dict):
                 raise WatermarkError("a modified operation requires a successful prior NVD snapshot")
+            reconciliation = nvd_full_reconciliation_status(prior, observed_at=retrieved_at)
+            if reconciliation["overdue"] is True:
+                raise FullReconciliationRequired(
+                    "a successful complete NVD reconciliation is required before another delta"
+                )
             watermark = parse_instant(
                 prior["source_snapshot"].get("last_successful_watermark"), "prior NVD watermark"
             )
             assert_contiguous_window(operation, watermark)
 
         staging_path = state_path.with_name(f".{state_path.name}.{operation.operation_id}.staging")
-        checkpoint = load_checkpoint(checkpoint_path)
-        if checkpoint is not None and checkpoint["operation_id"] != operation.operation_id:
-            raise IngestionError("checkpoint belongs to a different NVD operation")
-        if checkpoint is None:
+        checkpoint = load_checkpoint(
+            checkpoint_path,
+            operation=operation,
+            limits=self.client.limits,
+        )
+        if not staging_path.exists():
+            if checkpoint is not None:
+                raise IngestionError("NVD checkpoint exists without its sealed normalized staging state")
             initial = normalize_nvd_vulnerabilities([], gate=self.gate)
             if operation.mode == "modified":
                 initial = merge_nvd_state(prior, initial, mode="modified", gate=self.gate)
             atomic_write_json(
                 staging_path,
-                {"operation_id": operation.operation_id, "accepted_cve_ids": [], "state": initial},
+                {
+                    "format": "patch8-p4-nvd-staging-v2",
+                    "operation_id": operation.operation_id,
+                    "accepted_cve_ids": [],
+                    "committed_pages": [],
+                    "state": initial,
+                    "pending_page": None,
+                },
             )
-        elif not staging_path.exists():
-            raise IngestionError("NVD checkpoint exists without its normalized staging state")
-
-        def accept_page(vulnerabilities: list[Mapping[str, Any]], start_index: int) -> None:
-            try:
-                staging = json.loads(staging_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError) as error:
-                raise IngestionError("NVD normalized staging state is unreadable or corrupt") from error
-            if staging.get("operation_id") != operation.operation_id or not isinstance(staging.get("state"), dict):
-                raise IngestionError("NVD normalized staging state belongs to a different operation")
-            page = normalize_nvd_vulnerabilities(vulnerabilities, gate=self.gate)
-            accepted_cve_ids = staging.get("accepted_cve_ids")
-            if not isinstance(accepted_cve_ids, list) or any(
-                not isinstance(cve_id, str) for cve_id in accepted_cve_ids
+        staging = load_nvd_staging(staging_path, operation=operation, gate=self.gate)
+        if checkpoint is None:
+            if staging["committed_pages"]:
+                raise IngestionError("NVD staging has committed pages without a checkpoint seal")
+        else:
+            committed_pages = staging["committed_pages"]
+            pending = staging["pending_page"]
+            if committed_pages == checkpoint["applied_pages"]:
+                if digest(staging["state"]) != checkpoint["normalized_state_sha256"]:
+                    raise IngestionError("NVD checkpoint does not seal the committed normalized state")
+            elif (
+                pending is not None
+                and [*committed_pages, pending["evidence"]] == checkpoint["applied_pages"]
+                and pending["result_state_sha256"] == checkpoint["normalized_state_sha256"]
             ):
-                raise IngestionError("NVD normalized staging state has invalid accepted CVE identities")
+                promoted = {
+                    **staging,
+                    "accepted_cve_ids": sorted(
+                        {*staging["accepted_cve_ids"], *pending["evidence"]["cve_ids"]}
+                    ),
+                    "committed_pages": checkpoint["applied_pages"],
+                    "state": pending["result_state"],
+                    "pending_page": None,
+                }
+                atomic_write_json(staging_path, promoted)
+                staging = load_nvd_staging(staging_path, operation=operation, gate=self.gate)
+            else:
+                raise IngestionError("NVD checkpoint and staging journal disagree")
+
+        def prepare_page(
+            vulnerabilities: list[Mapping[str, Any]],
+            evidence: Mapping[str, Any],
+        ) -> str:
+            staging = load_nvd_staging(staging_path, operation=operation, gate=self.gate)
+            page = normalize_nvd_vulnerabilities(vulnerabilities, gate=self.gate)
+            pending = staging["pending_page"]
+            if pending is not None:
+                if pending["evidence"] != evidence:
+                    raise SchemaDrift("NVD replay conflicts with the prepared page identity")
+                replayed = merge_nvd_state(staging["state"], page, mode="modified", gate=self.gate)
+                if replayed != pending["result_state"] or digest(replayed) != pending["result_state_sha256"]:
+                    raise SchemaDrift("NVD prepared page does not match its deterministic replay")
+                return pending["result_state_sha256"]
+            accepted_cve_ids = staging["accepted_cve_ids"]
             duplicate_cves = sorted(set(accepted_cve_ids) & set(page["known_cve_ids"]))
             if duplicate_cves:
                 raise SchemaDrift(f"NVD operation repeated CVE IDs across pages: {', '.join(duplicate_cves)}")
             merged = merge_nvd_state(staging["state"], page, mode="modified", gate=self.gate)
+            merged_sha256 = digest(merged)
             atomic_write_json(
                 staging_path,
                 {
-                    "operation_id": operation.operation_id,
-                    "accepted_cve_ids": sorted({*accepted_cve_ids, *page["known_cve_ids"]}),
-                    "state": merged,
+                    **staging,
+                    "pending_page": {
+                        "evidence": dict(evidence),
+                        "result_state": merged,
+                        "result_state_sha256": merged_sha256,
+                    },
+                },
+            )
+            return merged_sha256
+
+        def commit_page(evidence: Mapping[str, Any], sealed_checkpoint: Mapping[str, Any]) -> None:
+            staging = load_nvd_staging(staging_path, operation=operation, gate=self.gate)
+            pending = staging["pending_page"]
+            if (
+                pending is None
+                or pending["evidence"] != evidence
+                or pending["result_state_sha256"] != sealed_checkpoint["normalized_state_sha256"]
+                or [*staging["committed_pages"], evidence] != sealed_checkpoint["applied_pages"]
+            ):
+                raise IngestionError("NVD page promotion differs from its checkpoint seal")
+            atomic_write_json(
+                staging_path,
+                {
+                    **staging,
+                    "accepted_cve_ids": sorted(
+                        {*staging["accepted_cve_ids"], *evidence["cve_ids"]}
+                    ),
+                    "committed_pages": sealed_checkpoint["applied_pages"],
+                    "state": pending["result_state"],
+                    "pending_page": None,
                 },
             )
 
-        checkpoint = NvdPager(self.client).run(operation, checkpoint_path, accept_page)
-        try:
-            staging = json.loads(staging_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
-            raise IngestionError("completed NVD staging state is unreadable or corrupt") from error
-        if staging.get("operation_id") != operation.operation_id or not isinstance(staging.get("state"), dict):
-            raise IngestionError("completed NVD staging state belongs to a different operation")
+        checkpoint = NvdPager(self.client).run(
+            operation,
+            checkpoint_path,
+            prepare_page,
+            commit_page,
+            crash_hook,
+        )
+        staging = load_nvd_staging(staging_path, operation=operation, gate=self.gate)
+        if (
+            staging["pending_page"] is not None
+            or staging["committed_pages"] != checkpoint["applied_pages"]
+            or digest(staging["state"]) != checkpoint["normalized_state_sha256"]
+        ):
+            raise IngestionError("completed NVD staging state is not sealed by its checkpoint")
         watermark = operation.window_end if operation.mode == "modified" else retrieved_at
         assert watermark is not None
         checked_at = instant_text(retrieved_at)
@@ -1211,7 +1818,25 @@ class NvdPipeline:
         }
         if set(snapshot) != set(self.gate.contract["tables"]["source_snapshots"]):
             raise IngestionError("NVD source snapshot differs from contract 3")
-        activated = {**staging["state"], "source_snapshot": snapshot}
+        activated = {
+            **staging["state"],
+            "source_snapshot": snapshot,
+            "acquisition_evidence": {
+                "operation_id": operation.operation_id,
+                "page_hashes": list(checkpoint["page_hashes"]),
+                "final_urls": list(checkpoint["final_urls"]),
+                "response_bytes": checkpoint["response_bytes"],
+            },
+        }
+        if operation.mode == "full":
+            activated["full_reconciliation"] = {
+                "last_successful_at": checked_at,
+                "source_snapshot_id": snapshot["source_snapshot_id"],
+                "complete_input_sha256": snapshot["complete_input_sha256"],
+            }
+        else:
+            activated["full_reconciliation"] = prior["full_reconciliation"]
+        self.client.ensure_within_deadline("atomic activation")
         atomic_write_json(state_path, activated)
         checkpoint_path.unlink(missing_ok=True)
         staging_path.unlink(missing_ok=True)
@@ -1303,8 +1928,7 @@ def normalize_kev_snapshot(
         cwes = entry["cwes"]
         if not isinstance(cwes, list) or any(not isinstance(item, str) or not CWE_RE.fullmatch(item) for item in cwes):
             raise SchemaDrift(f"KEV {cve_id}.cwes must contain only canonical CWE IDs")
-        if len(set(cwes)) != len(cwes):
-            raise SchemaDrift(f"KEV {cve_id}.cwes contains duplicates")
+        cwes = sorted(set(cwes), key=lambda item: int(item.removeprefix("CWE-")))
         row_values = {
             "cve_id": cve_id,
             "vendor_project": require_text(entry["vendorProject"], f"KEV {cve_id}.vendorProject"),
@@ -1375,7 +1999,13 @@ def normalize_kev_snapshot(
                 "schema_version": 1,
             }
         )
-    observations.sort(key=lambda item: (item["date_added"], item["cve_id"], item["observation_id"]))
+    observations.sort(
+        key=lambda item: (
+            -datetime.strptime(item["date_added"], "%Y-%m-%d").date().toordinal(),
+            item["cve_id"],
+            item["observation_id"],
+        )
+    )
     provenance.sort(key=lambda item: (item["source_record_path"], item["provenance_id"]))
     retrieved = instant_text(retrieved_at)
     snapshot_values = {
@@ -1514,14 +2144,24 @@ class KevPipeline:
                 raise IngestionError("existing KEV state has the wrong format")
             previous = candidate
         response = self.client.get(source_url, expected_url=source_url)
+        final_url = response.final_url or source_url
+        self.client.ensure_within_deadline("KEV normalization")
         normalized = normalize_kev_snapshot(
             response.body,
             retrieved_at=retrieved_at,
             builder_source_revision=builder_source_revision,
-            endpoint_or_repository=source_url,
+            endpoint_or_repository=final_url,
             gate=self.gate,
             response_headers=response.headers,
         )
         reconciled = reconcile_kev(previous, normalized, observed_at=retrieved_at)
+        reconciled = {
+            **reconciled,
+            "acquisition_evidence": {
+                "final_url": final_url,
+                "response_bytes": len(response.body),
+            },
+        }
+        self.client.ensure_within_deadline("KEV atomic activation")
         atomic_write_json(state_path, reconciled)
         return reconciled
