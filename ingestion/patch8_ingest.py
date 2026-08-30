@@ -1,8 +1,9 @@
-"""Bounded Patch8 P4 ingestion primitives.
+"""Bounded Patch8 P4/P4a ingestion primitives.
 
 This module deliberately uses only the Python standard library. It implements
-the P4 source core: source-policy sealing, bounded HTTP JSON retrieval,
-restartable NVD normalization, and complete KEV snapshot reconciliation.
+the P4/P4a source core: source-policy sealing, bounded retrieval, immutable
+CVE Program lineage, restartable NVD normalization, and complete KEV snapshot
+reconciliation.
 """
 
 from __future__ import annotations
@@ -10,10 +11,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
+from io import BytesIO
 import json
 import os
 from pathlib import Path
 import re
+import tarfile
 import tempfile
 import time
 from typing import Any, Callable, Iterable, Mapping, Protocol
@@ -27,9 +30,12 @@ POLICY_PATH = ROOT / "docs" / "licensing" / "source-policy.json"
 CONTRACT_PATH = ROOT / "contracts" / "data-content-v1.json"
 NVD_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+CVELIST_REPOSITORY = "https://github.com/CVEProject/cvelistV5"
+CVELIST_ARCHIVE_ORIGIN = "https://codeload.github.com"
+CVELIST_VERIFIED_COMMIT = "10c6b415a7a12a0c0fab006359939fcd34e2c78f"
 EXPECTED_POLICY_SHA256 = "7d102f731dc81cb55a4845375f7be2249a36a2ea4f55d63a0f36d99419bac926"
 EXPECTED_CONTRACT_SHA256 = "fa29dcb956c0fb01e55b4926b3762685c4d1784aeedb91a6a82ccab216b37f19"
-CVE_RE = re.compile(r"^CVE-(1999|2\d{3})-[1-9]\d{3,}$")
+CVE_RE = re.compile(r"^CVE-\d{4}-\d{4,}$")
 CWE_RE = re.compile(r"^CWE-[1-9]\d*$")
 HEX_40_RE = re.compile(r"^[0-9a-f]{40}$")
 HEX_64_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -62,6 +68,10 @@ class WatermarkError(IngestionError):
 
 class FullReconciliationRequired(WatermarkError):
     """Raised when a delta cannot substitute for an overdue complete NVD reconciliation."""
+
+
+class RejectedCveRecord(IngestionError):
+    """Raised when a CVE Program record is explicitly rejected and must not emit current rows."""
 
 
 def canonical_json(value: Any) -> bytes:
@@ -1915,6 +1925,480 @@ class NvdPipeline:
         self.client.ensure_within_deadline("atomic activation")
         atomic_write_json(state_path, activated)
         checkpoint_path.unlink(missing_ok=True)
+        staging_path.unlink(missing_ok=True)
+        return activated
+
+
+@dataclass(frozen=True)
+class CveProgramLimits:
+    max_records: int = 500_000
+    max_record_bytes: int = 2_000_000
+    max_expanded_bytes: int = 5_000_000_000
+
+    def __post_init__(self) -> None:
+        if min(self.max_records, self.max_record_bytes, self.max_expanded_bytes) < 1:
+            raise ValueError("CVE Program record and expanded-byte limits must be positive")
+
+
+def cvelist_archive_url(commit: str) -> str:
+    if not HEX_40_RE.fullmatch(commit):
+        raise IngestionError("CVE Program revision must be an immutable 40-character Git commit")
+    return f"{CVELIST_ARCHIVE_ORIGIN}/CVEProject/cvelistV5/tar.gz/{commit}"
+
+
+def require_cvelist_archive_url(url: str, commit: str) -> str:
+    expected = cvelist_archive_url(commit)
+    if url != expected:
+        raise IngestionError("CVE Program archive URL differs from the exact official immutable input")
+    return expected
+
+
+def _cvelist_record_path(cve_id: str) -> str:
+    _, year, serial_text = cve_id.split("-")
+    bucket = f"{int(serial_text) // 1_000}xxx"
+    return f"cves/{year}/{bucket}/{cve_id}.json"
+
+
+def _cvelist_provenance(
+    *,
+    gate: PolicyGate,
+    record_path: str,
+    record_sha256: str,
+    record_bytes: int,
+    field_rules: list[str],
+    published_at: str | None,
+    modified_at: str | None,
+    author: str,
+) -> dict[str, Any]:
+    source = gate.authorize("patch8_cvelist_v5", field_rules)
+    provenance_values = {
+        "source_id": "patch8_cvelist_v5",
+        "source_record_path": record_path,
+        "source_record_sha256": record_sha256,
+        "source_field_rules": sorted(field_rules),
+        "author_or_provider": author,
+        "transformation_kind": "normalized",
+    }
+    provenance_id = digest(provenance_values)
+    return {
+        "provenance_id": provenance_id,
+        "source_id": "patch8_cvelist_v5",
+        "source_display_name": source["display_name"],
+        "source_policy_decision": "allow",
+        "endpoint_or_repository": CVELIST_REPOSITORY,
+        "source_record_path": record_path,
+        "source_record_sha256": record_sha256,
+        "source_record_bytes": record_bytes,
+        "source_published_at": published_at,
+        "source_modified_at": modified_at,
+        "parser_name": "patch8_ingest.cvelist_v5",
+        "parser_version": "1",
+        "transformation_version": "1",
+        "table_schema_version": 1,
+        "rights_policy_schema_version": gate.policy["schema_version"],
+        "rights_policy_version": gate.policy["policy_version"],
+        "source_field_rule": json.dumps(sorted(field_rules), separators=(",", ":")),
+        "author_or_provider": author,
+        "transformation_kind": "normalized",
+        "modification_note": "Allowed CVE metadata and English CNA description fields normalized; all other containers and fields excluded.",
+        "required_notice_ids": list(source["required_notice_ids"]),
+        "schema_version": 1,
+    }
+
+
+def _optional_cvelist_instant(value: Any, field: str) -> str | None:
+    if value is None:
+        return None
+    return instant_text(parse_instant(value, field))
+
+
+def normalize_cve_program_record(
+    source_bytes: bytes,
+    *,
+    record_path: str,
+    gate: PolicyGate | None = None,
+) -> Mapping[str, Any]:
+    gate = gate or PolicyGate.load()
+    if not isinstance(source_bytes, bytes) or not source_bytes:
+        raise SchemaDrift("CVE Program record must contain JSON bytes")
+    try:
+        value = json.loads(source_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise SchemaDrift("CVE Program record contains malformed JSON") from error
+    if not isinstance(value, dict):
+        raise SchemaDrift("CVE Program record must be an object")
+    if value.get("dataType") != "CVE_RECORD" or value.get("dataVersion") not in {"5.0", "5.1", "5.2"}:
+        raise SchemaDrift("CVE Program record has an unsupported data type or schema version")
+    metadata = value.get("cveMetadata")
+    if not isinstance(metadata, dict):
+        raise SchemaDrift("CVE Program cveMetadata must be an object")
+    cve_id = require_cve(metadata.get("cveId"), "CVE Program cveMetadata.cveId")
+    if record_path != _cvelist_record_path(cve_id):
+        raise SchemaDrift("CVE Program record path does not match its CVE identity")
+    state = require_text(metadata.get("state"), f"CVE Program {cve_id}.state")
+    if state == "REJECTED":
+        raise RejectedCveRecord(f"CVE Program {cve_id} is rejected")
+    if state != "PUBLISHED":
+        raise SchemaDrift(f"CVE Program {cve_id} has an unsupported record state")
+    assigner_org_id = require_text(
+        metadata.get("assignerOrgId"), f"CVE Program {cve_id}.assignerOrgId"
+    )
+    assigner_short_name = metadata.get("assignerShortName")
+    if assigner_short_name is not None:
+        assigner_short_name = require_text(
+            assigner_short_name, f"CVE Program {cve_id}.assignerShortName"
+        )
+    published_at = _optional_cvelist_instant(
+        metadata.get("datePublished"), f"CVE Program {cve_id}.datePublished"
+    )
+    modified_at = _optional_cvelist_instant(
+        metadata.get("dateUpdated"), f"CVE Program {cve_id}.dateUpdated"
+    )
+    if published_at is not None and modified_at is not None:
+        if parse_instant(modified_at, f"CVE Program {cve_id}.dateUpdated") < parse_instant(
+            published_at, f"CVE Program {cve_id}.datePublished"
+        ):
+            raise SchemaDrift(f"CVE Program {cve_id} update precedes publication")
+    containers = value.get("containers")
+    if not isinstance(containers, dict) or not isinstance(containers.get("cna"), dict):
+        raise SchemaDrift(f"CVE Program {cve_id} is missing its CNA container")
+    cna = containers["cna"]
+    provider = cna.get("providerMetadata")
+    if not isinstance(provider, dict):
+        raise SchemaDrift(f"CVE Program {cve_id} is missing CNA provider lineage")
+    provider_org_id = require_text(
+        provider.get("orgId"), f"CVE Program {cve_id}.containers.cna.providerMetadata.orgId"
+    )
+    if provider_org_id != assigner_org_id:
+        raise SchemaDrift(f"CVE Program {cve_id} CNA provider differs from its assigner lineage")
+    provider_short_name = provider.get("shortName")
+    if provider_short_name is not None:
+        provider_short_name = require_text(
+            provider_short_name,
+            f"CVE Program {cve_id}.containers.cna.providerMetadata.shortName",
+        )
+    descriptions = cna.get("descriptions", [])
+    if not isinstance(descriptions, list):
+        raise SchemaDrift(f"CVE Program {cve_id}.containers.cna.descriptions must be an array")
+
+    record_sha256 = sha256(source_bytes).hexdigest()
+    metadata_rules = [
+        "dataVersion",
+        "cveMetadata.cveId",
+        "cveMetadata.state",
+        "cveMetadata.datePublished",
+        "cveMetadata.dateUpdated",
+        "cveMetadata.assignerOrgId",
+        "cveMetadata.assignerShortName",
+    ]
+    metadata_provenance = _cvelist_provenance(
+        gate=gate,
+        record_path=record_path,
+        record_sha256=record_sha256,
+        record_bytes=len(source_bytes),
+        field_rules=metadata_rules,
+        published_at=published_at,
+        modified_at=modified_at,
+        author=assigner_short_name or assigner_org_id,
+    )
+    metadata_values = {
+        "cve_id": cve_id,
+        "source_id": "patch8_cvelist_v5",
+        "record_state": state,
+        "published_at": published_at,
+        "modified_at": modified_at,
+        "source_identifier": None,
+        "provider_org_id": assigner_org_id,
+        "provider_short_name": assigner_short_name,
+    }
+    metadata_row = _observation(
+        "cve_metadata_observations", metadata_values, metadata_provenance, gate
+    )
+    description_rows: list[dict[str, Any]] = []
+    provenance: dict[str, Mapping[str, Any]] = {
+        metadata_provenance["provenance_id"]: metadata_provenance
+    }
+    description_rules = [
+        "dataVersion",
+        "cveMetadata.cveId",
+        "cveMetadata.datePublished",
+        "cveMetadata.dateUpdated",
+        "containers.cna.providerMetadata.orgId",
+        "containers.cna.providerMetadata.shortName",
+        "containers.cna.descriptions[].lang",
+        "containers.cna.descriptions[].value",
+    ]
+    for index, candidate in enumerate(descriptions):
+        if not isinstance(candidate, dict):
+            raise SchemaDrift(f"CVE Program {cve_id} description {index} must be an object")
+        lang = require_text(candidate.get("lang"), f"CVE Program {cve_id} description {index}.lang")
+        if lang.casefold() != "en" and not lang.casefold().startswith("en-"):
+            continue
+        description = require_text(
+            candidate.get("value"), f"CVE Program {cve_id} description {index}.value"
+        )
+        description_provenance = _cvelist_provenance(
+            gate=gate,
+            record_path=record_path,
+            record_sha256=record_sha256,
+            record_bytes=len(source_bytes),
+            field_rules=description_rules,
+            published_at=published_at,
+            modified_at=modified_at,
+            author=provider_short_name or provider_org_id,
+        )
+        description_values = {
+            "cve_id": cve_id,
+            "lang": lang,
+            "description": description,
+            "provider_org_id": provider_org_id,
+            "provider_short_name": provider_short_name,
+            "source_published_at": published_at,
+            "source_modified_at": modified_at,
+        }
+        description_rows.append(
+            _observation("descriptions", description_values, description_provenance, gate)
+        )
+        provenance[description_provenance["provenance_id"]] = description_provenance
+    if len({row["observation_id"] for row in description_rows}) != len(description_rows):
+        raise SchemaDrift(f"CVE Program {cve_id} repeats an identical English description")
+    return {
+        "cve_id": cve_id,
+        "metadata": metadata_row,
+        "descriptions": description_rows,
+        "selected_description_observation_id": (
+            description_rows[0]["observation_id"] if description_rows else None
+        ),
+        "provenance": sorted(provenance.values(), key=lambda row: row["provenance_id"]),
+    }
+
+
+def normalize_cve_program_archive(
+    archive_bytes: bytes,
+    *,
+    commit: str,
+    gate: PolicyGate | None = None,
+    limits: CveProgramLimits | None = None,
+    check_deadline: Callable[[str], None] | None = None,
+) -> Mapping[str, Any]:
+    gate = gate or PolicyGate.load()
+    limits = limits or CveProgramLimits()
+    if not isinstance(archive_bytes, bytes) or not archive_bytes:
+        raise SchemaDrift("CVE Program archive must contain bytes")
+    cvelist_archive_url(commit)
+    prefix = f"cvelistV5-{commit}/"
+    metadata_rows: list[Mapping[str, Any]] = []
+    description_rows: list[Mapping[str, Any]] = []
+    provenance: dict[str, Mapping[str, Any]] = {}
+    seen_paths: set[str] = set()
+    seen_cves: set[str] = set()
+    selected_descriptions: dict[str, str] = {}
+    expanded_bytes = 0
+    try:
+        archive = tarfile.open(fileobj=BytesIO(archive_bytes), mode="r:gz")
+    except (tarfile.TarError, OSError) as error:
+        raise SchemaDrift("CVE Program archive is malformed") from error
+    try:
+        for member in archive:
+            if check_deadline is not None:
+                check_deadline("CVE Program archive member")
+            name = member.name
+            if name.startswith("/") or ".." in Path(name).parts or not name.startswith(prefix):
+                raise SchemaDrift("CVE Program archive contains an unsafe or unexpected path")
+            relative = name[len(prefix) :]
+            if not relative.startswith("cves/"):
+                continue
+            if member.isdir():
+                continue
+            if not member.isreg() or not relative.endswith(".json"):
+                raise SchemaDrift("CVE Program cves tree contains a non-record archive member")
+            if relative in seen_paths:
+                raise SchemaDrift("CVE Program archive repeats a record path")
+            seen_paths.add(relative)
+            if len(seen_paths) > limits.max_records:
+                raise BudgetExceeded("CVE Program record-count budget exceeded")
+            if member.size < 1 or member.size > limits.max_record_bytes:
+                raise BudgetExceeded("CVE Program record-size budget exceeded")
+            expanded_bytes += member.size
+            if expanded_bytes > limits.max_expanded_bytes:
+                raise BudgetExceeded("CVE Program expanded-byte budget exceeded")
+            extracted = archive.extractfile(member)
+            if extracted is None:
+                raise SchemaDrift("CVE Program archive record cannot be read")
+            record_bytes = extracted.read(member.size + 1)
+            if len(record_bytes) != member.size:
+                raise SchemaDrift("CVE Program archive record size differs from its header")
+            if check_deadline is not None:
+                check_deadline("CVE Program record normalization")
+            try:
+                normalized = normalize_cve_program_record(
+                    record_bytes,
+                    record_path=relative,
+                    gate=gate,
+                )
+            except RejectedCveRecord:
+                continue
+            cve_id = normalized["cve_id"]
+            if cve_id in seen_cves:
+                raise SchemaDrift(f"CVE Program archive repeats {cve_id}")
+            seen_cves.add(cve_id)
+            metadata_rows.append(normalized["metadata"])
+            description_rows.extend(normalized["descriptions"])
+            if normalized["selected_description_observation_id"] is not None:
+                selected_descriptions[cve_id] = normalized[
+                    "selected_description_observation_id"
+                ]
+            for row in normalized["provenance"]:
+                existing = provenance.get(row["provenance_id"])
+                if existing is not None and existing != row:
+                    raise SchemaDrift("CVE Program provenance identity collision")
+                provenance[row["provenance_id"]] = row
+    except (tarfile.TarError, OSError) as error:
+        raise SchemaDrift("CVE Program archive decompression failed") from error
+    finally:
+        archive.close()
+    if not seen_paths:
+        raise SchemaDrift("CVE Program archive contains no CVE records")
+    metadata_rows.sort(
+        key=lambda row: tuple(row[key] for key in gate.contract["table_keys"]["cve_metadata_observations"]["sort_keys"])
+    )
+    description_rows.sort(
+        key=lambda row: tuple(row[key] for key in gate.contract["table_keys"]["descriptions"]["sort_keys"])
+    )
+    if len({row["observation_id"] for row in metadata_rows}) != len(metadata_rows):
+        raise SchemaDrift("CVE Program metadata observations are not unique")
+    if len({row["observation_id"] for row in description_rows}) != len(description_rows):
+        raise SchemaDrift("CVE Program description observations are not unique")
+    expected_metadata = set(gate.contract["tables"]["cve_metadata_observations"])
+    expected_descriptions = set(gate.contract["tables"]["descriptions"])
+    expected_provenance = set(gate.contract["tables"]["provenance"])
+    if any(set(row) != expected_metadata for row in metadata_rows):
+        raise IngestionError("CVE Program metadata output differs from contract 3")
+    if any(set(row) != expected_descriptions for row in description_rows):
+        raise IngestionError("CVE Program description output differs from contract 3")
+    if any(set(row) != expected_provenance for row in provenance.values()):
+        raise IngestionError("CVE Program provenance output differs from contract 3")
+    return {
+        "format": "patch8-p4a-cvelist-core-v1",
+        "cve_metadata_observations": metadata_rows,
+        "descriptions": description_rows,
+        "provenance": sorted(provenance.values(), key=lambda row: row["provenance_id"]),
+        "known_cve_ids": sorted(seen_cves),
+        "selected_description_observation_ids": dict(sorted(selected_descriptions.items())),
+    }
+
+
+class CveProgramPipeline:
+    """Build and atomically activate one complete immutable cvelistV5 snapshot."""
+
+    def __init__(
+        self,
+        client: BoundedJsonClient,
+        *,
+        gate: PolicyGate | None = None,
+        limits: CveProgramLimits | None = None,
+    ) -> None:
+        self.client = client
+        self.gate = gate or PolicyGate.load()
+        self.limits = limits or CveProgramLimits()
+
+    def run(
+        self,
+        *,
+        commit: str,
+        state_path: Path,
+        retrieved_at: datetime,
+        builder_source_revision: str,
+        archive_url: str | None = None,
+        crash_hook: Callable[[str], None] | None = None,
+    ) -> Mapping[str, Any]:
+        if not HEX_40_RE.fullmatch(builder_source_revision):
+            raise IngestionError("builder source revision must be an immutable 40-character Git commit")
+        source_url = require_cvelist_archive_url(
+            archive_url or cvelist_archive_url(commit), commit
+        )
+        response = self.client.get(source_url, expected_url=source_url)
+        final_url = response.final_url or source_url
+        if final_url != source_url:
+            raise IngestionError("CVE Program archive final URL differs from its immutable input")
+        normalized = normalize_cve_program_archive(
+            response.body,
+            commit=commit,
+            gate=self.gate,
+            limits=self.limits,
+            check_deadline=self.client.ensure_within_deadline,
+        )
+        archive_sha256 = sha256(response.body).hexdigest()
+        normalized_sha256 = digest(normalized)
+        staging_values = {
+            "format": "patch8-p4a-cvelist-staging-v1",
+            "repository": CVELIST_REPOSITORY,
+            "archive_url": source_url,
+            "commit": commit,
+            "archive_sha256": archive_sha256,
+            "archive_bytes": len(response.body),
+            "normalized_sha256": normalized_sha256,
+            "normalized": normalized,
+        }
+        staging = {**staging_values, "staging_sha256": digest(staging_values)}
+        staging_path = state_path.with_name(f".{state_path.name}.{commit}.staging")
+        if staging_path.exists():
+            try:
+                existing = json.loads(staging_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as error:
+                raise IngestionError("CVE Program staging state is unreadable or corrupt") from error
+            checked = require_keys(
+                existing,
+                field="CVE Program staging state",
+                required={*staging_values, "staging_sha256"},
+                allowed={*staging_values, "staging_sha256"},
+            )
+            existing_values = {key: checked[key] for key in staging_values}
+            if checked["staging_sha256"] != digest(existing_values) or checked != staging:
+                raise SchemaDrift("CVE Program restart state differs from the verified immutable input")
+        else:
+            atomic_write_json(staging_path, staging)
+        if crash_hook is not None:
+            crash_hook("after_staging_write")
+        checked_at = instant_text(retrieved_at)
+        snapshot_values = {
+            "source_id": "patch8_cvelist_v5",
+            "endpoint_or_repository": CVELIST_REPOSITORY,
+            "immutable_revision": commit,
+            "source_version": None,
+            "catalog_version": None,
+            "schema_version_seen": 5,
+            "etag": response.headers.get("etag"),
+            "last_modified": response.headers.get("last-modified"),
+            "window_start": None,
+            "window_end": None,
+            "complete_input_sha256": archive_sha256,
+            "complete_input_bytes": len(response.body),
+            "checked_at": checked_at,
+            "source_retrieved_at": checked_at,
+            "source_observed_at": checked_at,
+            "last_successful_watermark": commit,
+            "builder_source_revision": builder_source_revision,
+            "rights_policy_version": self.gate.policy["policy_version"],
+            "schema_version": 1,
+        }
+        snapshot = {"source_snapshot_id": digest(snapshot_values), **snapshot_values}
+        if set(snapshot) != set(self.gate.contract["tables"]["source_snapshots"]):
+            raise IngestionError("CVE Program source snapshot differs from contract 3")
+        activated = {
+            **normalized,
+            "source_snapshot": snapshot,
+            "acquisition_evidence": {
+                "repository": CVELIST_REPOSITORY,
+                "archive_url": source_url,
+                "final_url": final_url,
+                "commit": commit,
+                "archive_sha256": archive_sha256,
+                "archive_bytes": len(response.body),
+            },
+        }
+        self.client.ensure_within_deadline("CVE Program atomic activation")
+        atomic_write_json(state_path, activated)
         staging_path.unlink(missing_ok=True)
         return activated
 

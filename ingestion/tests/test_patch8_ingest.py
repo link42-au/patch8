@@ -2,16 +2,22 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
+import gzip
 from hashlib import sha256
 from io import BytesIO
 import json
 from pathlib import Path
+import tarfile
 import tempfile
 import unittest
 
 from ingestion.patch8_ingest import (
     BoundedJsonClient,
     BudgetExceeded,
+    CVELIST_REPOSITORY,
+    CVELIST_VERIFIED_COMMIT,
+    CveProgramLimits,
+    CveProgramPipeline,
     FetchLimits,
     FullReconciliationRequired,
     IngestionError,
@@ -23,16 +29,20 @@ from ingestion.patch8_ingest import (
     NvdPager,
     NvdPipeline,
     PolicyGate,
+    RejectedCveRecord,
     SchemaDrift,
     Throttled,
     UrllibTransport,
     WatermarkError,
     assert_contiguous_window,
     canonical_json,
+    cvelist_archive_url,
     kev_membership,
     next_delta_operation,
     merge_nvd_state,
     normalize_kev_snapshot,
+    normalize_cve_program_archive,
+    normalize_cve_program_record,
     normalize_nvd_vulnerabilities,
     nvd_full_reconciliation_status,
     reconcile_kev,
@@ -43,6 +53,9 @@ from ingestion.patch8_ingest import (
 
 FIXTURES = json.loads(
     (Path(__file__).resolve().parents[1] / "fixtures" / "p4-cases.json").read_text(encoding="utf-8")
+)
+CVELIST_FIXTURES = json.loads(
+    (Path(__file__).resolve().parents[1] / "fixtures" / "p4a-cases.json").read_text(encoding="utf-8")
 )
 NOW = datetime(2026, 8, 29, tzinfo=UTC)
 BUILDER_REVISION = "1" * 40
@@ -128,6 +141,30 @@ def nvd_page(records, *, start=0, total=None, page_size=2, timestamp="2026-08-29
         "timestamp": timestamp,
         "vulnerabilities": deepcopy(records),
     }
+
+
+def cvelist_record_path(record):
+    cve_id = record["cveMetadata"]["cveId"]
+    _, year, serial = cve_id.split("-")
+    return f"cves/{year}/{int(serial) // 1_000}xxx/{cve_id}.json"
+
+
+def cvelist_archive(records, commit, *, paths=None):
+    paths = paths or [cvelist_record_path(record) for record in records]
+    output = BytesIO()
+    with gzip.GzipFile(fileobj=output, mode="wb", mtime=0) as compressed:
+        with tarfile.open(fileobj=compressed, mode="w") as archive:
+            for path, record in zip(paths, records, strict=True):
+                record_bytes = canonical_json(record)
+                member = tarfile.TarInfo(f"cvelistV5-{commit}/{path}")
+                member.size = len(record_bytes)
+                member.mtime = 0
+                member.uid = 0
+                member.gid = 0
+                member.uname = ""
+                member.gname = ""
+                archive.addfile(member, BytesIO(record_bytes))
+    return output.getvalue()
 
 
 class PolicyTests(unittest.TestCase):
@@ -902,6 +939,226 @@ class WatermarkTests(unittest.TestCase):
                     retrieved_at=refreshed_at + timedelta(days=8),
                     builder_source_revision=BUILDER_REVISION,
                 )
+
+
+class CveProgramTests(unittest.TestCase):
+    commit = "a" * 40
+
+    def test_record_emits_only_exact_metadata_and_english_cna_observations(self):
+        record = CVELIST_FIXTURES["published"]
+        source_bytes = canonical_json(record)
+        record_path = cvelist_record_path(record)
+        normalized = normalize_cve_program_record(source_bytes, record_path=record_path)
+        self.assertEqual(normalized["cve_id"], "CVE-2026-0005")
+        metadata = normalized["metadata"]
+        self.assertEqual(metadata["source_id"], "patch8_cvelist_v5")
+        self.assertEqual(metadata["record_state"], "PUBLISHED")
+        self.assertEqual(metadata["provider_short_name"], "synthetic-cna")
+        self.assertEqual(
+            [row["lang"] for row in normalized["descriptions"]],
+            ["en", "en-AU"],
+        )
+        self.assertEqual(
+            normalized["selected_description_observation_id"],
+            normalized["descriptions"][0]["observation_id"],
+        )
+        serialized = canonical_json(normalized)
+        self.assertNotIn(b"Excluded media", serialized)
+        self.assertNotIn(b"Excluded vendor", serialized)
+        self.assertNotIn(b"Excluded ADP", serialized)
+        self.assertNotIn(b"Description synthetique", serialized)
+        for provenance in normalized["provenance"]:
+            self.assertEqual(provenance["endpoint_or_repository"], CVELIST_REPOSITORY)
+            self.assertEqual(provenance["source_record_path"], record_path)
+            self.assertEqual(provenance["source_record_sha256"], sha256(source_bytes).hexdigest())
+            self.assertEqual(provenance["source_record_bytes"], len(source_bytes))
+            self.assertEqual(provenance["required_notice_ids"], ["notice.cve_program"])
+            self.assertNotIn("cve.descriptions", provenance["source_field_rule"])
+
+    def test_record_rejects_wrong_source_shape_schema_path_state_and_provider_lineage(self):
+        published = CVELIST_FIXTURES["published"]
+        cases = []
+        wrong_version = deepcopy(published)
+        wrong_version["dataVersion"] = "6.0"
+        cases.append((wrong_version, cvelist_record_path(wrong_version), SchemaDrift))
+        missing_provider = deepcopy(published)
+        del missing_provider["containers"]["cna"]["providerMetadata"]
+        cases.append((missing_provider, cvelist_record_path(missing_provider), SchemaDrift))
+        provider_drift = deepcopy(published)
+        provider_drift["containers"]["cna"]["providerMetadata"]["orgId"] = "other-provider"
+        cases.append((provider_drift, cvelist_record_path(provider_drift), SchemaDrift))
+        cases.append((published, "cves/2026/9xxx/CVE-2026-0005.json", SchemaDrift))
+        cases.append((CVELIST_FIXTURES["rejected"], cvelist_record_path(CVELIST_FIXTURES["rejected"]), RejectedCveRecord))
+        cases.append((FIXTURES["nvd_records"]["rich"], "cves/2026/1xxx/CVE-2026-1001.json", SchemaDrift))
+        for record, path, error in cases:
+            with self.subTest(path=path, error=error):
+                with self.assertRaises(error):
+                    normalize_cve_program_record(canonical_json(record), record_path=path)
+        with self.assertRaises(SchemaDrift):
+            normalize_cve_program_record(b"", record_path="cves/2026/1xxx/CVE-2026-1001.json")
+        with self.assertRaisesRegex(IngestionError, "not allowed"):
+            PolicyGate.load().authorize("patch8_cvelist_v5", ["cveMetadata.dateReserved"])
+
+    def test_archive_is_bounded_safe_deterministic_and_excludes_rejected_records(self):
+        records = [
+            CVELIST_FIXTURES["second"],
+            CVELIST_FIXTURES["rejected"],
+            CVELIST_FIXTURES["published"],
+        ]
+        archive_bytes = cvelist_archive(records, self.commit)
+        first = normalize_cve_program_archive(archive_bytes, commit=self.commit)
+        second = normalize_cve_program_archive(archive_bytes, commit=self.commit)
+        self.assertEqual(first, second)
+        self.assertEqual(first["known_cve_ids"], ["CVE-2026-0005", "CVE-2026-1002"])
+        self.assertEqual(len(first["cve_metadata_observations"]), 2)
+        self.assertEqual(len(first["descriptions"]), 3)
+        selected = first["selected_description_observation_ids"]["CVE-2026-0005"]
+        self.assertEqual(
+            next(row for row in first["descriptions"] if row["observation_id"] == selected)["lang"],
+            "en",
+        )
+        self.assertNotIn("CVE-2026-1003", canonical_json(first).decode())
+        with self.assertRaisesRegex(BudgetExceeded, "record-count"):
+            normalize_cve_program_archive(
+                archive_bytes,
+                commit=self.commit,
+                limits=CveProgramLimits(max_records=1),
+            )
+        with self.assertRaisesRegex(BudgetExceeded, "record-size"):
+            normalize_cve_program_archive(
+                archive_bytes,
+                commit=self.commit,
+                limits=CveProgramLimits(max_record_bytes=10),
+            )
+        with self.assertRaisesRegex(BudgetExceeded, "expanded-byte"):
+            normalize_cve_program_archive(
+                archive_bytes,
+                commit=self.commit,
+                limits=CveProgramLimits(max_expanded_bytes=10),
+            )
+        unsafe = cvelist_archive(
+            [CVELIST_FIXTURES["published"]],
+            self.commit,
+            paths=["cves/2026/1xxx/../../escape.json"],
+        )
+        with self.assertRaisesRegex(SchemaDrift, "unsafe"):
+            normalize_cve_program_archive(unsafe, commit=self.commit)
+        commit_drift = cvelist_archive([CVELIST_FIXTURES["published"]], "b" * 40)
+        with self.assertRaisesRegex(SchemaDrift, "unexpected path"):
+            normalize_cve_program_archive(commit_drift, commit=self.commit)
+
+        clock = FakeClock()
+
+        def consume_deadline(_stage):
+            clock.now += 0.6
+            if clock.now > 1:
+                raise BudgetExceeded("CVE Program operation deadline exceeded")
+
+        with self.assertRaisesRegex(BudgetExceeded, "deadline"):
+            normalize_cve_program_archive(
+                archive_bytes,
+                commit=self.commit,
+                check_deadline=consume_deadline,
+            )
+
+    def test_pipeline_records_exact_commit_and_is_repeat_build_deterministic(self):
+        self.assertEqual(CVELIST_VERIFIED_COMMIT, "10c6b415a7a12a0c0fab006359939fcd34e2c78f")
+        records = [CVELIST_FIXTURES["published"], CVELIST_FIXTURES["second"]]
+        archive_bytes = cvelist_archive(records, self.commit)
+        url = cvelist_archive_url(self.commit)
+        response_value = JsonResponse(
+            body=archive_bytes,
+            headers={"etag": '"synthetic"', "last-modified": "Sat, 29 Aug 2026 00:00:00 GMT"},
+            final_url=url,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            first_path = Path(directory) / "first.json"
+            second_path = Path(directory) / "second.json"
+            first = CveProgramPipeline(client(SequenceTransport([response_value]))).run(
+                commit=self.commit,
+                state_path=first_path,
+                retrieved_at=NOW,
+                builder_source_revision=BUILDER_REVISION,
+            )
+            second = CveProgramPipeline(client(SequenceTransport([response_value]))).run(
+                commit=self.commit,
+                state_path=second_path,
+                retrieved_at=NOW,
+                builder_source_revision=BUILDER_REVISION,
+            )
+            self.assertEqual(first_path.read_bytes(), second_path.read_bytes())
+            self.assertEqual(first, second)
+            self.assertEqual(first["source_snapshot"]["immutable_revision"], self.commit)
+            self.assertEqual(first["source_snapshot"]["last_successful_watermark"], self.commit)
+            self.assertEqual(first["source_snapshot"]["complete_input_sha256"], sha256(archive_bytes).hexdigest())
+            self.assertEqual(first["acquisition_evidence"]["archive_url"], url)
+            self.assertEqual(first["acquisition_evidence"]["final_url"], url)
+
+    def test_pipeline_rejects_commit_origin_redirect_byte_time_and_forged_restart_state(self):
+        archive_bytes = cvelist_archive([CVELIST_FIXTURES["published"]], self.commit)
+        url = cvelist_archive_url(self.commit)
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / "state.json"
+            with self.assertRaisesRegex(IngestionError, "archive URL"):
+                CveProgramPipeline(client(SequenceTransport([]))).run(
+                    commit=self.commit,
+                    archive_url=cvelist_archive_url("b" * 40),
+                    state_path=state,
+                    retrieved_at=NOW,
+                    builder_source_revision=BUILDER_REVISION,
+                )
+            redirected = JsonResponse(
+                body=archive_bytes,
+                headers={},
+                final_url="https://example.invalid/cvelist.tar.gz",
+            )
+            with self.assertRaisesRegex(IngestionError, "final response URL"):
+                CveProgramPipeline(client(SequenceTransport([redirected]))).run(
+                    commit=self.commit,
+                    state_path=state,
+                    retrieved_at=NOW,
+                    builder_source_revision=BUILDER_REVISION,
+                )
+            with self.assertRaisesRegex(BudgetExceeded, "byte"):
+                CveProgramPipeline(
+                    client(SequenceTransport([JsonResponse(body=archive_bytes, headers={})]), max_bytes=10)
+                ).run(
+                    commit=self.commit,
+                    state_path=state,
+                    retrieved_at=NOW,
+                    builder_source_revision=BUILDER_REVISION,
+                )
+
+            crashed = CveProgramPipeline(
+                client(SequenceTransport([JsonResponse(body=archive_bytes, headers={}, final_url=url)]))
+            )
+            with self.assertRaisesRegex(RuntimeError, "staging"):
+                crashed.run(
+                    commit=self.commit,
+                    state_path=state,
+                    retrieved_at=NOW,
+                    builder_source_revision=BUILDER_REVISION,
+                    crash_hook=lambda stage: (_ for _ in ()).throw(RuntimeError(stage)),
+                )
+            self.assertFalse(state.exists())
+            staging_path = next(Path(directory).glob("*.staging"))
+            forged = json.loads(staging_path.read_text(encoding="utf-8"))
+            forged["normalized"]["known_cve_ids"] = ["CVE-2026-9999"]
+            forged_values = {key: value for key, value in forged.items() if key != "staging_sha256"}
+            forged["normalized_sha256"] = sha256(canonical_json(forged["normalized"])).hexdigest()
+            forged_values["normalized_sha256"] = forged["normalized_sha256"]
+            forged["staging_sha256"] = sha256(canonical_json(forged_values)).hexdigest()
+            staging_path.write_text(json.dumps(forged), encoding="utf-8")
+            with self.assertRaisesRegex(SchemaDrift, "restart state"):
+                CveProgramPipeline(
+                    client(SequenceTransport([JsonResponse(body=archive_bytes, headers={}, final_url=url)]))
+                ).run(
+                    commit=self.commit,
+                    state_path=state,
+                    retrieved_at=NOW,
+                    builder_source_revision=BUILDER_REVISION,
+                )
+            self.assertFalse(state.exists())
 
 
 class KevTests(unittest.TestCase):

@@ -1,6 +1,6 @@
 # Attribution and notices
 
-Status: source-complete P3 notice bundle. The application sources below are policy-registered but not yet queried.
+Status: source-complete P4a notice and lineage bundle. No production dataset is published.
 
 ## Patch8 software
 
@@ -9,10 +9,11 @@ by law. The corresponding source is the public `link42-au/patch8` repository.
 
 ## CVE Program
 
-Planned canonical CVE identity/state/date and English CNA description fields come only from the official
+Canonical CVE identity/state/date and English CNA description builder fields come only from the official
 `CVEProject/cvelistV5` repository at an immutable commit. Each value retains its record path, hash, provider lineage,
 and the CVE/MITRE notice required by the [CVE Terms of Use](https://www.cve.org/Legal/TermsOfUse). Link42 identifies its
-normalization and does not imply CVE Program or MITRE endorsement.
+normalization and does not imply CVE Program or MITRE endorsement. The P4a source-complete canary resolved official
+commit `10c6b415a7a12a0c0fab006359939fcd34e2c78f`; it did not retain or publish source payloads.
 
 ## NIST National Vulnerability Database
 

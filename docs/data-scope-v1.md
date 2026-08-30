@@ -71,9 +71,9 @@ public-dataset rule backed by the CVE Program Terms of Use. The tested rule sepa
 - `containers.cna.descriptions[].lang` and `.value`.
 
 The rule requires the CVE/MITRE notice, an immutable repository commit, record path and blob/input SHA-256, and field
-lineage. P3 authorizes those inputs but does not fetch or emit them; descriptions remain unavailable until P4a implements
-and verifies the adapter. The builder must not copy a description from NVD and later claim that it was verified against
-CVE content.
+lineage. P4a now implements and verifies that commit-pinned source adapter locally; its normalized observations are not
+yet a Parquet release or browser capability. The builder must not copy a description from NVD and later claim that it
+was verified against CVE content.
 
 ## Canonical identity
 

@@ -11,14 +11,15 @@ the historical Worker/D1 service with a static SvelteKit application intended fo
 | Static Pages shell | **live-verified** | [Hosted run 33160759689](https://github.com/link42-au/patch8/actions/runs/33160759689) verified the restored legacy interface at [`link42-au.github.io/patch8/`](https://link42-au.github.io/patch8/). This status does not claim data-backed capability. |
 | DuckDB-Wasm data client | **in progress** | Synthetic query-routed Parquet, deterministic fixtures, prepared SQL, corrupt-current fallback, local Chromium/Firefox/Playwright WebKit, and immutable public-HF Chromium range proofs pass without changing the legacy UI. Actual desktop/mobile Safari, cache, and memory evidence remain incomplete; see [`docs/p2-duckdb-proof.md`](docs/p2-duckdb-proof.md). |
 | v1 data and release contracts | **P3c source-complete** | Contract 3 / policy 3.0.0 retains source-specific CVE metadata, the exact CVSS-v2 severity path, and stable KEV identity while representing only actual NVD nodes. It pins live NVD timestamp/delta/reconciliation semantics. Exact schemas, 24 source-policy fixtures, 59 manifest fixtures, and immutable historical/current baselines pass. |
-| Patch8 dataset builder | **P4 source-complete** | The standard-library NVD/KEV core has pre-allocation streamed limits, exact final-source identity, total deadlines that cap socket and wait time to the remaining operation budget, sealed crash-idempotent staging, exact observations/provenance, canonical lists/order, stable KEV reconciliation, a durable seven-day complete-NVD clock, atomic activation, and 41 deterministic tests. Live in-memory source-shape/identity canaries passed without retaining payloads; no production dataset is claimed. |
+| Patch8 dataset builder | **P4a source-complete** | The standard-library core now adds exact-commit CVE Program metadata and English CNA description lineage to the hardened NVD/KEV pipeline. Bounded immutable acquisition, provider/record-SHA provenance, rejected/unregistered-field exclusion, sealed staging, atomic activation, deterministic selection without observation loss, and 46 tests pass. Exact-commit live shape canaries passed without retaining payloads; no full upstream build or production dataset is claimed. |
 | Public dataset | **P2 canary live-verified; release blocked** | The public, ungated Hugging Face dataset [`link42-au/patch`](https://huggingface.co/datasets/link42-au/patch) serves the synthetic P2 canary anonymously at manifest revision `aa4e13c4564924c12a16720d8bebe57208dfccdd`. It does not yet contain a verified Patch8 vulnerability release; the local full build and scoped publisher write/readback remain pending. |
 | FIRST EPSS | **disabled** | No Link42 fetch, cache, dataset, history, or republication is authorized by v1. |
 | OSV | **disabled for first release** | It awaits an enforceable home-database licence registry. |
 | AppThreat | **rejected for first release** | Record-level provenance and a supportable browser range-reader did not clear the release gates. |
 
 `live-verified` applies only to the static P1 shell and its deployment canary. It does not mean the complete Patch8
-product is live: no upstream data adapter or vulnerability lookup has been implemented or live-verified.
+product is live: source-complete upstream builders are not yet compiled into Parquet, published, connected to the UI,
+or live-verified as a vulnerability lookup.
 
 The restored routes deliberately show unavailable or empty states where the historical interface depended on the
 removed Worker/D1 API. Login, account, watchlist persistence, feed administration, backfills, and live vulnerability,
@@ -29,9 +30,9 @@ package, software, report, and feed data cannot operate without that backend and
 - Static SvelteKit and TypeScript, built with `@sveltejs/adapter-static`.
 - Public GitHub Pages and public GitHub Actions.
 - An app-owned Python ingestion/build pipeline generates bounded, query-routed Parquet from rights-approved official
-  CVE Program, NVD, CISA KEV, CVE-linked GitHub Advisory Database, CISA Vulnrichment, and MITRE CWE fields. P3 registers
-  the exact `cvelistV5` public-dataset rule; descriptions still stay unavailable until P4a implements and verifies the
-  commit-pinned adapter.
+  CVE Program, NVD, CISA KEV, CVE-linked GitHub Advisory Database, CISA Vulnrichment, and MITRE CWE fields. P4a now
+  implements the exact commit-pinned `cvelistV5` metadata/English-CNA adapter; those observations remain local builder
+  output until the later complete Parquet and publication phases.
 - The first full build runs locally. Public Actions later run bounded source-change updates without accumulating one
   permanent Parquet file per day.
 - Public best-effort dataset storage at `link42-au/patch`, activated through an immutable revision manifest with

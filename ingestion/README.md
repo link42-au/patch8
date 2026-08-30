@@ -1,6 +1,6 @@
 # Patch8 ingestion
 
-This directory contains the source-complete P4 NVD/KEV core. It is Python-standard-library-only and is exercised by
+This directory contains the source-complete P4/P4a NVD, KEV, and CVE Program core. It is Python-standard-library-only and is exercised by
 `pnpm test:ingestion` as part of `pnpm test` and `pnpm verify`.
 
 ## Implemented boundary
@@ -27,15 +27,22 @@ This directory contains the source-complete P4 NVD/KEV core. It is Python-standa
   `not_listed`; a missing, failed, or incomplete reconciliation remains `unknown`.
 - Full NVD reconciliation has a durable success clock and source-snapshot link. A delta cannot reset it or run after the
   seven-day maximum; an overdue or failed full reconciliation remains honestly stale and blocks further deltas.
-- The fixture corpus is synthetic and rights-safe. Forty-one tests cover pagination/overshoot, zero-result responses,
+- CVE Program ingestion accepts only the exact official codeload archive at an immutable commit. It bounds compressed
+  and expanded bytes, records, members, and total time; rejects path/type/commit/origin/redirect drift; verifies CVE,
+  schema, assigner/CNA provider, record SHA, and notice lineage; and emits only PUBLISHED metadata plus English CNA
+  descriptions. Every English observation is retained and the first valid source-order observation is pointed to
+  deterministically. Rejected records, NVD descriptions, ADP, affected, reference, supporting-media, and unknown fields
+  cannot enter output. A refetched immutable archive must exactly match any sealed restart state before activation.
+- The fixture corpus is synthetic and rights-safe. Forty-six tests cover pagination/overshoot, zero-result responses,
   cross-page duplication, sealed checkpoint forgery, both page-commit crash boundaries, acquisition/deadline budgets,
   remaining-time socket/wait caps, redirects, throttle handling, canonical lists/order, schema drift, watermark gaps/overlap, full-reconciliation age,
-  KEV changes/removals/unknown state, immutable official repository URLs, and clean/delta equivalence.
+  KEV changes/removals/unknown state, immutable official repository URLs, CVE Program lineage/rejected/unregistered
+  content/commit drift/forged staging, repeat-build determinism, and clean/delta equivalence.
 
-`KevPipeline` and `NvdPipeline` are active under contract 3. NVD provides normalized staging, restart,
+`CveProgramPipeline`, `KevPipeline`, and `NvdPipeline` are active under contract 3. NVD provides normalized staging, restart,
 full/delta equivalence, and manifest-independent atomic state activation.
-No source is fetched merely by running the test suite. Separate in-memory canaries validated an official CVE response
-and the official zero-result envelope; neither source payload was retained. No raw response, description, linked page,
+No source is fetched merely by running the test suite. Separate in-memory canaries validated official NVD shapes and
+representative CVE Program records at commit `10c6b415a7a12a0c0fab006359939fcd34e2c78f`; no source payload was retained. No raw response, linked page,
 Parquet file, public dataset, manifest, or browser-visible data is produced.
 
 ## Resolved P3c dependency
