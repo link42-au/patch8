@@ -33,11 +33,12 @@ This directory contains the source-complete P4/P4a NVD, KEV, and CVE Program cor
   descriptions. Every English observation is retained and the first valid source-order observation is pointed to
   deterministically. Rejected records, NVD descriptions, ADP, affected, reference, supporting-media, and unknown fields
   cannot enter output. A refetched immutable archive must exactly match any sealed restart state before activation.
-- The fixture corpus is synthetic and rights-safe. Forty-six tests cover pagination/overshoot, zero-result responses,
+- The fixture corpus is synthetic and rights-safe. Fifty tests cover pagination/overshoot, zero-result responses,
   cross-page duplication, sealed checkpoint forgery, both page-commit crash boundaries, acquisition/deadline budgets,
   remaining-time socket/wait caps, redirects, throttle handling, canonical lists/order, schema drift, watermark gaps/overlap, full-reconciliation age,
   KEV changes/removals/unknown state, immutable official repository URLs, CVE Program lineage/rejected/unregistered
-  content/commit drift/forged staging, repeat-build determinism, and clean/delta equivalence.
+  content/commit drift/forged staging, complete-archive member/type/path/expanded-byte boundaries, safe ignored metadata,
+  repeat-build determinism, and clean/delta equivalence.
 
 `CveProgramPipeline`, `KevPipeline`, and `NvdPipeline` are active under contract 3. NVD provides normalized staging, restart,
 full/delta equivalence, and manifest-independent atomic state activation.

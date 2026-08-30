@@ -149,11 +149,33 @@ def cvelist_record_path(record):
     return f"cves/{year}/{int(serial) // 1_000}xxx/{cve_id}.json"
 
 
-def cvelist_archive(records, commit, *, paths=None):
+def archive_member(name, *, data=b"", member_type=tarfile.REGTYPE, linkname=""):
+    member = tarfile.TarInfo(name)
+    member.type = member_type
+    member.size = len(data) if member_type in {tarfile.REGTYPE, tarfile.AREGTYPE} else 0
+    member.linkname = linkname
+    member.mtime = 0
+    member.uid = 0
+    member.gid = 0
+    member.uname = ""
+    member.gname = ""
+    return member, BytesIO(data) if member.type in {tarfile.REGTYPE, tarfile.AREGTYPE} else None
+
+
+def cvelist_archive(
+    records,
+    commit,
+    *,
+    paths=None,
+    extra_members=(),
+    tar_format=tarfile.DEFAULT_FORMAT,
+):
     paths = paths or [cvelist_record_path(record) for record in records]
     output = BytesIO()
     with gzip.GzipFile(fileobj=output, mode="wb", mtime=0) as compressed:
-        with tarfile.open(fileobj=compressed, mode="w") as archive:
+        with tarfile.open(fileobj=compressed, mode="w", format=tar_format) as archive:
+            for member, payload in extra_members:
+                archive.addfile(member, payload)
             for path, record in zip(paths, records, strict=True):
                 record_bytes = canonical_json(record)
                 member = tarfile.TarInfo(f"cvelistV5-{commit}/{path}")
@@ -1060,6 +1082,130 @@ class CveProgramTests(unittest.TestCase):
                 commit=self.commit,
                 check_deadline=consume_deadline,
             )
+
+    def test_archive_counts_ignored_regular_bytes_before_path_filtering(self):
+        prefix = f"cvelistV5-{self.commit}/"
+        archive_bytes = cvelist_archive(
+            [CVELIST_FIXTURES["published"]],
+            self.commit,
+            extra_members=[
+                archive_member(prefix + "docs/ignored.bin", data=b"x" * 1_000_000)
+            ],
+        )
+        with self.assertRaisesRegex(BudgetExceeded, "expanded-byte"):
+            normalize_cve_program_archive(
+                archive_bytes,
+                commit=self.commit,
+                limits=CveProgramLimits(max_expanded_bytes=999_999),
+            )
+
+    def test_archive_counts_ignored_directories_before_path_filtering(self):
+        prefix = f"cvelistV5-{self.commit}/"
+        ignored_directories = [
+            archive_member(prefix + f"docs/{index}", member_type=tarfile.DIRTYPE)
+            for index in range(2_000)
+        ]
+        archive_bytes = cvelist_archive(
+            [CVELIST_FIXTURES["published"]],
+            self.commit,
+            extra_members=ignored_directories,
+        )
+        with self.assertRaisesRegex(BudgetExceeded, "archive-member"):
+            normalize_cve_program_archive(
+                archive_bytes,
+                commit=self.commit,
+                limits=CveProgramLimits(max_members=1_999),
+            )
+
+    def test_archive_rejects_unsafe_links_and_sibling_member_types_anywhere(self):
+        prefix = f"cvelistV5-{self.commit}/"
+        unsafe_link = archive_member(
+            prefix + "docs/link",
+            member_type=tarfile.SYMTYPE,
+            linkname="../../outside",
+        )
+        with self.assertRaisesRegex(SchemaDrift, "unsafe link target"):
+            normalize_cve_program_archive(
+                cvelist_archive(
+                    [CVELIST_FIXTURES["published"]],
+                    self.commit,
+                    extra_members=[unsafe_link],
+                ),
+                commit=self.commit,
+            )
+        sibling_types = [
+            (tarfile.LNKTYPE, prefix + "docs/target"),
+            (tarfile.CHRTYPE, ""),
+            (tarfile.BLKTYPE, ""),
+            (tarfile.FIFOTYPE, ""),
+            (tarfile.CONTTYPE, ""),
+            (tarfile.GNUTYPE_SPARSE, ""),
+        ]
+        for member_type, linkname in sibling_types:
+            with self.subTest(member_type=member_type):
+                unsafe_member = archive_member(
+                    prefix + "docs/unsafe",
+                    member_type=member_type,
+                    linkname=linkname,
+                )
+                with self.assertRaisesRegex(SchemaDrift, "unsupported"):
+                    normalize_cve_program_archive(
+                        cvelist_archive(
+                            [CVELIST_FIXTURES["published"]],
+                            self.commit,
+                            extra_members=[unsafe_member],
+                        ),
+                        commit=self.commit,
+                    )
+        pax_sparse, sparse_payload = archive_member(
+            prefix + "docs/sparse.bin",
+            data=b"x",
+        )
+        pax_sparse.pax_headers = {
+            "GNU.sparse.map": "0,1",
+            "GNU.sparse.size": "1000000",
+        }
+        with self.assertRaisesRegex(SchemaDrift, "unsupported sparse"):
+            normalize_cve_program_archive(
+                cvelist_archive(
+                    [CVELIST_FIXTURES["published"]],
+                    self.commit,
+                    extra_members=[(pax_sparse, sparse_payload)],
+                    tar_format=tarfile.PAX_FORMAT,
+                ),
+                commit=self.commit,
+            )
+
+    def test_archive_allows_safe_ordinary_metadata_and_rejects_backslash_paths(self):
+        prefix = f"cvelistV5-{self.commit}/"
+        record_only = normalize_cve_program_archive(
+            cvelist_archive([CVELIST_FIXTURES["published"]], self.commit),
+            commit=self.commit,
+        )
+        safe_archive = cvelist_archive(
+            [CVELIST_FIXTURES["published"]],
+            self.commit,
+            extra_members=[
+                archive_member(prefix.rstrip("/"), member_type=tarfile.DIRTYPE),
+                archive_member(prefix + "docs", member_type=tarfile.DIRTYPE),
+                archive_member(
+                    prefix + "docs/README.md",
+                    data=b"metadata\n",
+                    member_type=tarfile.AREGTYPE,
+                ),
+            ],
+        )
+        self.assertEqual(
+            normalize_cve_program_archive(safe_archive, commit=self.commit),
+            record_only,
+        )
+        backslash_archive = cvelist_archive(
+            [CVELIST_FIXTURES["published"]],
+            self.commit,
+            extra_members=[archive_member(prefix + "docs\\escape", data=b"x")],
+        )
+        with self.assertRaisesRegex(SchemaDrift, "unsafe member path"):
+            normalize_cve_program_archive(backslash_archive, commit=self.commit)
 
     def test_pipeline_records_exact_commit_and_is_repeat_build_deterministic(self):
         self.assertEqual(CVELIST_VERIFIED_COMMIT, "10c6b415a7a12a0c0fab006359939fcd34e2c78f")

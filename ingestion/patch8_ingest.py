@@ -14,7 +14,7 @@ from hashlib import sha256
 from io import BytesIO
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import tarfile
 import tempfile
@@ -1934,10 +1934,18 @@ class CveProgramLimits:
     max_records: int = 500_000
     max_record_bytes: int = 2_000_000
     max_expanded_bytes: int = 5_000_000_000
+    max_members: int = 600_000
 
     def __post_init__(self) -> None:
-        if min(self.max_records, self.max_record_bytes, self.max_expanded_bytes) < 1:
-            raise ValueError("CVE Program record and expanded-byte limits must be positive")
+        if min(
+            self.max_members,
+            self.max_records,
+            self.max_record_bytes,
+            self.max_expanded_bytes,
+        ) < 1:
+            raise ValueError(
+                "CVE Program member, record, and expanded-byte limits must be positive"
+            )
 
 
 def cvelist_archive_url(commit: str) -> str:
@@ -1957,6 +1965,25 @@ def _cvelist_record_path(cve_id: str) -> str:
     _, year, serial_text = cve_id.split("-")
     bucket = f"{int(serial_text) // 1_000}xxx"
     return f"cves/{year}/{bucket}/{cve_id}.json"
+
+
+def _validate_cvelist_archive_path(value: str, *, label: str) -> None:
+    if (
+        not value
+        or value.startswith(("/", "\\"))
+        or "\\" in value
+        or "\x00" in value
+    ):
+        raise SchemaDrift(f"CVE Program archive contains an unsafe {label}")
+    normalized = value[:-1] if value.endswith("/") else value
+    raw_parts = normalized.split("/")
+    path = PurePosixPath(normalized)
+    if (
+        not normalized
+        or path.is_absolute()
+        or any(part in {"", ".", ".."} for part in raw_parts)
+    ):
+        raise SchemaDrift(f"CVE Program archive contains an unsafe {label}")
 
 
 def _cvelist_provenance(
@@ -2193,6 +2220,7 @@ def normalize_cve_program_archive(
     seen_paths: set[str] = set()
     seen_cves: set[str] = set()
     selected_descriptions: dict[str, str] = {}
+    member_count = 0
     expanded_bytes = 0
     try:
         archive = tarfile.open(fileobj=BytesIO(archive_bytes), mode="r:gz")
@@ -2202,15 +2230,45 @@ def normalize_cve_program_archive(
         for member in archive:
             if check_deadline is not None:
                 check_deadline("CVE Program archive member")
+            member_count += 1
+            if member_count > limits.max_members:
+                raise BudgetExceeded("CVE Program archive-member budget exceeded")
             name = member.name
-            if name.startswith("/") or ".." in Path(name).parts or not name.startswith(prefix):
-                raise SchemaDrift("CVE Program archive contains an unsafe or unexpected path")
-            relative = name[len(prefix) :]
-            if not relative.startswith("cves/"):
+            _validate_cvelist_archive_path(name, label="member path")
+            root_name = prefix.rstrip("/")
+            if name.rstrip("/") == root_name:
+                if member.type != tarfile.DIRTYPE or member.size != 0:
+                    raise SchemaDrift(
+                        "CVE Program archive root must be a zero-size directory"
+                    )
+                relative = ""
+            elif name.startswith(prefix):
+                relative = name[len(prefix) :]
+            else:
+                raise SchemaDrift(
+                    "CVE Program archive contains an unexpected path outside its immutable prefix"
+                )
+            if member.issym() or member.islnk():
+                _validate_cvelist_archive_path(member.linkname, label="link target")
+                raise SchemaDrift("CVE Program archive contains an unsupported link member")
+            if member.sparse is not None:
+                raise SchemaDrift("CVE Program archive contains an unsupported sparse member")
+            if member.type == tarfile.DIRTYPE:
+                if member.size != 0:
+                    raise SchemaDrift(
+                        "CVE Program archive contains a non-zero directory member"
+                    )
+            elif member.type in {tarfile.REGTYPE, tarfile.AREGTYPE}:
+                if member.size < 0:
+                    raise SchemaDrift("CVE Program archive contains a negative member size")
+                expanded_bytes += member.size
+                if expanded_bytes > limits.max_expanded_bytes:
+                    raise BudgetExceeded("CVE Program expanded-byte budget exceeded")
+            else:
+                raise SchemaDrift("CVE Program archive contains an unsupported member type")
+            if not relative.startswith("cves/") or member.type == tarfile.DIRTYPE:
                 continue
-            if member.isdir():
-                continue
-            if not member.isreg() or not relative.endswith(".json"):
+            if not relative.endswith(".json"):
                 raise SchemaDrift("CVE Program cves tree contains a non-record archive member")
             if relative in seen_paths:
                 raise SchemaDrift("CVE Program archive repeats a record path")
@@ -2219,9 +2277,6 @@ def normalize_cve_program_archive(
                 raise BudgetExceeded("CVE Program record-count budget exceeded")
             if member.size < 1 or member.size > limits.max_record_bytes:
                 raise BudgetExceeded("CVE Program record-size budget exceeded")
-            expanded_bytes += member.size
-            if expanded_bytes > limits.max_expanded_bytes:
-                raise BudgetExceeded("CVE Program expanded-byte budget exceeded")
             extracted = archive.extractfile(member)
             if extracted is None:
                 raise SchemaDrift("CVE Program archive record cannot be read")
