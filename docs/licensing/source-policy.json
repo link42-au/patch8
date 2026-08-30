@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "policy_id": "patch8-public-dataset",
-  "policy_version": "2.0.0",
+  "policy_version": "3.0.0",
   "product": "patch8",
   "use_mode": "public_dataset_republication",
   "generated_dataset_default_license": null,
@@ -67,7 +67,7 @@
       "enabled": true,
       "allowed_use_modes": ["public_dataset_republication"],
       "publication_mode": "normalized_fields",
-      "terms_reviewed_at": "2026-08-28",
+      "terms_reviewed_at": "2026-08-30",
       "official_terms_urls": [
         "https://nvd.nist.gov/developers/request-an-api-key",
         "https://www.nist.gov/open/license",
@@ -93,8 +93,6 @@
         "nvd.cvss.cvssData.baseSeverity",
         "cve.metrics.cvssMetricV2[].baseSeverity",
         "nvd.weakness.cwe_id",
-        "cve.configurations[].operator",
-        "cve.configurations[].negate",
         "cve.configurations[].nodes[].operator",
         "cve.configurations[].nodes[].negate",
         "cve.configurations[].nodes[].cpeMatch[].vulnerable",
@@ -121,7 +119,7 @@
       "attribution": "This product uses data from the NVD API but is not endorsed or certified by the NVD. Link42 modifies and normalizes NVD-authored structured fields.",
       "raw_publication": false,
       "raw_private_retention_days": 90,
-      "refresh_method": "NVD API modified-date windows with overlap, a contiguous persisted watermark, rate headers, and no more than one automated delta cycle every two hours",
+      "refresh_method": "NVD API lastModStartDate/lastModEndDate windows with exact overlap and a contiguous persisted watermark, plus periodic complete reconciliation for match-criteria-only changes; no more than one automated delta cycle every two hours",
       "blocker": null
     },
     {

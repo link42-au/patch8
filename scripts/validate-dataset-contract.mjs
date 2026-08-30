@@ -20,6 +20,10 @@ const REVIEWED_VERSION_BASELINES = Object.freeze({
     content_contract_sha256: "7e2d92c5acfcc34d83694778380fe5bab1ce8dff730cfc837192233ed209d0db",
     source_policy_sha256: "dd35dd6b6cb7a3ad46e65689a6ad756aa2235c84fcd9cde040577522dbeb60a5",
   }),
+  "3:3.0.0": Object.freeze({
+    content_contract_sha256: "fa29dcb956c0fb01e55b4926b3762685c4d1784aeedb91a6a82ccab216b37f19",
+    source_policy_sha256: "7d102f731dc81cb55a4845375f7be2249a36a2ea4f55d63a0f36d99419bac926",
+  }),
 });
 const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
@@ -221,7 +225,17 @@ const expectedOutputLedger = (contract, policy) => {
         transformationId = "source_identity_v1";
         pointerSemantics = "source_identity";
         inputFields = [];
-      } else if (["affected_software", "configuration_node_observations"].includes(table) && ["configuration_id", "node_id", "parent_node_id"].includes(field)) {
+      } else if (table === "configuration_node_observations" && field === "parent_node_id") {
+        ruleId = "nvd_top_level_parent_null_v1";
+        transformationId = "constant_null_v1";
+        pointerSemantics = "constant";
+        inputFields = [];
+      } else if (table === "configuration_node_observations" && ["node_kind", "node_depth"].includes(field)) {
+        ruleId = `nvd_top_level_${field}_constant_v1`;
+        transformationId = "constant_v1";
+        pointerSemantics = "constant";
+        inputFields = [];
+      } else if (["affected_software", "configuration_node_observations"].includes(table) && ["configuration_id", "node_id"].includes(field)) {
         ruleId = "nvd_source_path_identity_v1";
         transformationId = "source_path_index_v1";
       }
@@ -259,9 +273,10 @@ const validateSourcePolicy = (policy, schema, contract) => {
   const cve = byId.get("patch8_cvelist_v5");
   const cveFields = ["dataVersion", "cveMetadata.cveId", "cveMetadata.state", "cveMetadata.datePublished", "cveMetadata.dateUpdated", "cveMetadata.assignerOrgId", "cveMetadata.assignerShortName", "containers.cna.providerMetadata.orgId", "containers.cna.providerMetadata.shortName", "containers.cna.providerMetadata.dateUpdated", "containers.cna.descriptions[].lang", "containers.cna.descriptions[].value"];
   if (!setEquals(cve?.allowed_fields ?? [], cveFields) || cve?.repository !== "https://github.com/CVEProject/cvelistV5" || cve?.immutable_revision_required !== true || !cve?.official_terms_urls?.includes("https://www.cve.org/Legal/TermsOfUse") || !cve?.official_terms_urls?.includes("https://www.cve.org/Downloads")) addError(errors, "CVELIST_RULE_INVALID", "/sources", "cvelistV5 rule must pin official terms, repository, immutable revision, and exact v1 fields");
-  const nvdRequired = ["cve.vulnStatus", "cve.metrics.cvssMetricV2[].baseSeverity", "cve.configurations[].operator", "cve.configurations[].negate", "cve.configurations[].nodes[].operator", "cve.configurations[].nodes[].negate", "cve.configurations[].nodes[].cpeMatch[].vulnerable", "cve.configurations[].nodes[].cpeMatch[].criteria", "cve.configurations[].nodes[].cpeMatch[].matchCriteriaId", "cve.configurations[].nodes[].cpeMatch[].versionStartIncluding", "cve.configurations[].nodes[].cpeMatch[].versionStartExcluding", "cve.configurations[].nodes[].cpeMatch[].versionEndIncluding", "cve.configurations[].nodes[].cpeMatch[].versionEndExcluding"];
+  const nvdRequired = ["cve.vulnStatus", "cve.metrics.cvssMetricV2[].baseSeverity", "cve.configurations[].nodes[].operator", "cve.configurations[].nodes[].negate", "cve.configurations[].nodes[].cpeMatch[].vulnerable", "cve.configurations[].nodes[].cpeMatch[].criteria", "cve.configurations[].nodes[].cpeMatch[].matchCriteriaId", "cve.configurations[].nodes[].cpeMatch[].versionStartIncluding", "cve.configurations[].nodes[].cpeMatch[].versionStartExcluding", "cve.configurations[].nodes[].cpeMatch[].versionEndIncluding", "cve.configurations[].nodes[].cpeMatch[].versionEndExcluding"];
+  const nvdNonexistent = ["cve.configurations[].operator", "cve.configurations[].negate"];
   const nvdDerivedOnly = ["configuration_id", "node_id", "parent_node_id"];
-  if (!nvdRequired.every((field) => byId.get("patch8_nvd")?.allowed_fields?.includes(field)) || nvdDerivedOnly.some((field) => byId.get("patch8_nvd")?.allowed_fields?.some((allowed) => allowed.endsWith(field)))) addError(errors, "NVD_STRUCTURE_RULE_INCOMPLETE", "/sources", "NVD raw Boolean-tree/version paths must be exact and Link42 path identities must remain derived");
+  if (!nvdRequired.every((field) => byId.get("patch8_nvd")?.allowed_fields?.includes(field)) || nvdNonexistent.some((field) => byId.get("patch8_nvd")?.allowed_fields?.includes(field)) || nvdDerivedOnly.some((field) => byId.get("patch8_nvd")?.allowed_fields?.some((allowed) => allowed.endsWith(field)))) addError(errors, "NVD_STRUCTURE_RULE_INCOMPLETE", "/sources", "NVD actual node/version paths must be exact, nonexistent configuration-container fields forbidden, and Link42 path identities derived");
   if (errors.length === 0) errors.push(...validateReviewedVersionBaseline(contract, policy));
   return errors;
 };

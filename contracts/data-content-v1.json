@@ -1,6 +1,6 @@
 {
-  "contract_version": 2,
-  "rights_policy_version": "2.0.0",
+  "contract_version": 3,
+  "rights_policy_version": "3.0.0",
   "required_source_ids": [
     "patch8_cvelist_v5",
     "patch8_nvd",
@@ -11,7 +11,7 @@
   ],
   "source_requirements": {
     "patch8_cvelist_v5": {"source_locator": "https://github.com/CVEProject/cvelistV5", "watermark_kind": "git_commit", "policy_source_sha256": "41efe32ca20f4daee532f215b89884ac8a7fbe6f6a62d62bdac3b8bc37a88af2"},
-    "patch8_nvd": {"source_locator": "https://services.nvd.nist.gov/rest/json/cves/2.0", "watermark_kind": "api_window", "policy_source_sha256": "6300bc0d852e57075cd6e6465b5adda5b59d3518cacfb81489ab62d6ca4ae9a5"},
+    "patch8_nvd": {"source_locator": "https://services.nvd.nist.gov/rest/json/cves/2.0", "watermark_kind": "api_window", "policy_source_sha256": "2fcd017e33da47ce2920afe9841db9c7c5354c621f04b73e3f1c68ee221342cd"},
     "patch8_cisa_kev": {"source_locator": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json", "watermark_kind": "catalogue_version", "policy_source_sha256": "6d30d61b7562d2d332266e534bce97f87dcf810dea7c9fe5a1474c864c179c50"},
     "patch8_github_advisory_database": {"source_locator": "https://github.com/github/advisory-database", "watermark_kind": "git_commit", "policy_source_sha256": "4ce8cddd98d1b6aaf65b1527cd04c561b299bd71f5d20e13607ddfd06ec86d6c"},
     "patch8_cisa_vulnrichment": {"source_locator": "https://github.com/cisagov/vulnrichment", "watermark_kind": "git_commit", "policy_source_sha256": "9e9823076007a8354475417e6bc6ed0e7aad3f3ecdc98ef266b5453e4b89a548"},
@@ -87,7 +87,7 @@
     "cvss_observations": ["metric_type", "source_modified_at"],
     "weakness_observations": ["metric_author", "source_modified_at"],
     "references": ["source_modified_at"],
-    "configuration_node_observations": ["parent_node_id", "node_index", "source_modified_at"],
+    "configuration_node_observations": ["parent_node_id", "source_modified_at"],
     "affected_software": ["match_criteria_id", "version", "version_start_including", "version_start_excluding", "version_end_including", "version_end_excluding", "source_modified_at"],
     "ghsa_advisories": ["published_at", "modified_at", "withdrawn_at", "summary", "details", "qualitative_severity"],
     "ghsa_cve_aliases": [],
@@ -171,7 +171,7 @@
     },
     "configuration_node_observations": {
       "source_id": "patch8_nvd",
-      "fields": {"cve_id": "cve.id", "operator": ["cve.configurations[].operator", "cve.configurations[].nodes[].operator"], "negate": ["cve.configurations[].negate", "cve.configurations[].nodes[].negate"], "source_modified_at": "cve.lastModified"}
+      "fields": {"cve_id": "cve.id", "operator": "cve.configurations[].nodes[].operator", "negate": "cve.configurations[].nodes[].negate", "source_modified_at": "cve.lastModified"}
     },
     "affected_software": {
       "source_id": "patch8_nvd",
@@ -204,11 +204,11 @@
     "cve_metadata_observations.observation_id": ["cve_metadata_observations.source_id", "cve_metadata_observations.cve_id", "cve_metadata_observations.record_state", "cve_metadata_observations.published_at", "cve_metadata_observations.modified_at", "cve_metadata_observations.source_identifier", "cve_metadata_observations.provider_org_id", "cve_metadata_observations.provider_short_name"],
     "configuration_node_observations.observation_id": ["configuration_node_observations.cve_id", "configuration_node_observations.node_id", "configuration_node_observations.operator", "configuration_node_observations.negate", "configuration_node_observations.source_modified_at"],
     "configuration_node_observations.configuration_id": ["configuration_node_observations.cve_id", "configuration_node_observations.configuration_index"],
-    "configuration_node_observations.node_id": ["configuration_node_observations.configuration_id", "configuration_node_observations.node_kind", "configuration_node_observations.node_index"],
-    "configuration_node_observations.parent_node_id": ["configuration_node_observations.configuration_id"],
-    "configuration_node_observations.node_kind": ["configuration_node_observations.configuration_index", "configuration_node_observations.node_index"],
-    "configuration_node_observations.node_depth": ["configuration_node_observations.node_kind"],
-    "configuration_node_observations.child_order": ["configuration_node_observations.configuration_index", "configuration_node_observations.node_index"],
+    "configuration_node_observations.node_id": ["configuration_node_observations.configuration_id", "configuration_node_observations.node_index"],
+    "configuration_node_observations.parent_node_id": [],
+    "configuration_node_observations.node_kind": [],
+    "configuration_node_observations.node_depth": [],
+    "configuration_node_observations.child_order": ["configuration_node_observations.node_index"],
     "affected_software.configuration_id": ["configuration_node_observations.configuration_id"],
     "affected_software.node_id": ["configuration_node_observations.node_id"],
     "affected_software.observation_id": ["affected_software.cve_id", "affected_software.node_id", "affected_software.vulnerable", "affected_software.match_criteria_id", "affected_software.cpe_uri", "affected_software.version_start_including", "affected_software.version_start_excluding", "affected_software.version_end_including", "affected_software.version_end_excluding", "affected_software.source_modified_at"],

@@ -120,24 +120,28 @@ extra field part of v1.
 - Accepted identity/dates: `cve.id`, `cve.published`, `cve.lastModified`, and `cve.sourceIdentifier`.
 - Accepted CVSS: NIST/NVD-authored metric `source`, `type`, `cvssData.version`, `vectorString`, `baseScore`, and
   `baseSeverity`. CVSS v2's exact API shape places `baseSeverity` on `cve.metrics.cvssMetricV2[]`, outside `cvssData`;
-  policy 2.0.0 authorizes that one additional exact path. All accepted v4.0, v3.1, v3.0, and v2 observations are retained; CNA/vendor metrics require separately
+  policy 3.0.0 authorizes that one additional exact path. All accepted v4.0, v3.1, v3.0, and v2 observations are retained; CNA/vendor metrics require separately
   proven CVE lineage and are otherwise rejected.
 - Accepted weakness data: normalized `CWE-N` identifiers from NVD weakness descriptions; `NVD-CWE-noinfo`,
   `NVD-CWE-Other`, prose, and unparseable identifiers are not CWE associations.
 - Accepted applicability: vulnerable CPE 2.3 URI, match-criteria identifier when covered by policy, the exact raw
-  configuration/node structure, `operator`, `negate`, `vulnerable`, match-criteria identifier, and all four explicit
-  start/end including/excluding version bounds. `configuration_node_observations` retains one ordered row for every
-  configuration root and every child node, including empty nodes, while `affected_software` retains only CPE matches
-  and points back to the exact node. `configuration_id`, `node_id`, and `parent_node_id` are Link42-derived stable
-  identities made from the source path/index; they are not NVD fields and remain in the closed derivation ledger.
+  actual node structure, `operator`, `negate`, `vulnerable`, match-criteria identifier, and all four explicit start/end
+  including/excluding version bounds. The configuration object is only a container and is not emitted as a synthetic
+  node. `configuration_node_observations` retains one ordered row for every actual node, including empty nodes; each
+  top-level node has null `parent_node_id`. `affected_software` retains only CPE matches and points back to the exact
+  node. `configuration_id` and `node_id` are Link42-derived stable identities made from the source path/index; they are
+  not NVD fields and remain in the closed derivation ledger.
   Patch8 preserves the Boolean configuration tree; a CPE observation is labelled
   “listed in NVD applicability” and is not presented as vendor confirmation.
-- Accepted references: HTTPS URL and NVD tags. The linked title, body, file, vendor comment, and attachment are not read
+- Accepted references: absolute HTTP(S) URL and NVD tags. The linked title, body, file, vendor comment, and attachment are not read
   or published.
 - Accepted history: NVD change time/type and old/new values only for otherwise allowed fields; denied text produces a
   hash-only change event.
 - Not accepted: NVD descriptions without exact `cvelistV5` lineage, vendor comments, raw response pages, unknown metric
   authors, or fields outside `patch8_nvd.allowed_fields`.
+- Delta discovery uses the live `lastModStartDate` / `lastModEndDate` parameters with a two-hour overlap. The live API
+  rejects the historical `includeMatchStringChange` parameter, so a delta must not claim match-criteria-only coverage;
+  scheduled complete reconciliation is mandatory and its failure makes NVD coverage stale/unavailable.
 
 ### CISA Known Exploited Vulnerabilities
 
@@ -253,7 +257,8 @@ only the small snapshot/status/release metadata changes.
 
 ## Time, freshness, and availability
 
-All instants are UTC Parquet `TIMESTAMP_MICROS` values and all calendar-only values are ISO `DATE`. Source timestamps are
+All instants are UTC Parquet `TIMESTAMP_MICROS` values and all calendar-only values are ISO `DATE`. NVD API timestamps
+without an explicit offset are interpreted as UTC before normalization; source timestamps are
 never replaced with fetch time. The contract distinguishes:
 
 - `source_published_at` / `source_modified_at`: supplied by upstream;
@@ -266,7 +271,7 @@ never replaced with fetch time. The contract distinguishes:
 
 | Source | Intended check/build cadence | `current` threshold | Stale rule |
 |---|---|---|---|
-| NVD | bounded modified-window poll; never more than one automated cycle per two hours | successful contiguous watermark no more than 30 hours old | older than 30 hours, overlap/reconciliation incomplete, or a gap exists |
+| NVD | bounded `lastModStartDate` / `lastModEndDate` poll with exact overlap; never more than one automated cycle per two hours; periodic complete reconciliation | successful contiguous watermark no more than 30 hours old and latest scheduled complete reconciliation passed | older than 30 hours, overlap/complete reconciliation incomplete, or a gap exists |
 | `cvelistV5` | daily pinned-commit check | checked commit no more than 30 hours old | older than 30 hours or commit/schema validation failed |
 | CISA KEV | daily full-snapshot check | checked catalogue no more than 30 hours old | older than 30 hours or declared/actual count or integrity fails |
 | GitHub Advisory Database | daily pinned-commit check | checked commit no more than 30 hours old | older than 30 hours or repository/schema validation failed |
@@ -337,7 +342,7 @@ it must display that release's age and never mix files or source statuses from t
 | `cvss_observations` | `observation_id`, `cve_id`, `source_id`, `metric_author`, `metric_type?`, `cvss_version`, `vector`, `base_score`, `base_severity`, `source_modified_at?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | CVE year/bucket; sort `cve_id, cvss_version, source_id, observation_id` |
 | `weakness_observations` | `observation_id`, `cve_id`, `cwe_id`, `source_id`, `metric_author?`, `source_modified_at?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | CVE year/bucket; sort `cve_id, cwe_id, source_id` |
 | `references` | `observation_id`, `cve_id`, `source_id`, `url`, `tags`, `source_modified_at?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | CVE year/bucket; sort `cve_id, url, source_id` |
-| `configuration_node_observations` | `observation_id`, `cve_id`, `configuration_id`, `node_id`, `parent_node_id?`, `configuration_index`, `node_index?`, `node_kind`, `node_depth`, `child_order`, `operator`, `negate`, `source_modified_at?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | CVE year/bucket; every root/internal/empty node; sort `cve_id, configuration_index, node_depth, child_order, node_id, observation_id` |
+| `configuration_node_observations` | `observation_id`, `cve_id`, `configuration_id`, `node_id`, `parent_node_id?`, `configuration_index`, `node_index`, `node_kind`, `node_depth`, `child_order`, `operator`, `negate`, `source_modified_at?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | CVE year/bucket; every actual NVD node including empty nodes, with top-level parent null; sort `cve_id, configuration_index, node_depth, child_order, node_id, observation_id` |
 | `affected_software` | `observation_id`, `cve_id`, `configuration_id`, `node_id`, `vulnerable`, `match_criteria_id?`, `vendor`, `product`, `cpe_uri`, `version?`, `version_start_including?`, `version_start_excluding?`, `version_end_including?`, `version_end_excluding?`, `source_id`, `source_modified_at?`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | CVE year/bucket; sort `cve_id, configuration_id, node_id, cpe_uri, observation_id` |
 | `ghsa_advisories` | `observation_id`, `ghsa_id`, `published_at?`, `modified_at?`, `withdrawn_at?`, `summary?`, `details?`, `qualitative_severity?`, `references`, `credits`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | `ghsa/bucket=HH/`; sort `ghsa_id` |
 | `ghsa_cve_aliases` | `observation_id`, `ghsa_id`, `alias_index`, `cve_id`, `is_current`, `provenance_id`, `rights_policy_version`, `schema_version` | `ghsa/bucket=HH/`; sort `ghsa_id, alias_index, cve_id` |

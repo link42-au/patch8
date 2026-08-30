@@ -365,10 +365,10 @@
       "expected_error_codes": ["OUTPUT_LEDGER_INVALID"]
     },
     {
-      "name": "reject dropping configuration-root operator lineage",
+      "name": "reject dropping actual NVD node operator lineage",
       "reader": { "manifest_version": 1, "schema_version": 1 },
-      "mutations": [{ "operation": "delete_matching", "path": "/field_lineage", "match": { "table": "configuration_node_observations", "field": "operator", "source_id": "patch8_nvd", "source_field": "cve.configurations[].operator" } }],
-      "expected_error_codes": ["OUTPUT_LEDGER_INVALID"]
+      "mutations": [{ "operation": "delete_matching", "path": "/field_lineage", "match": { "table": "configuration_node_observations", "field": "operator", "source_id": "patch8_nvd", "source_field": "cve.configurations[].nodes[].operator" } }],
+      "expected_error_codes": ["FIELD_PROVENANCE_INVALID", "OUTPUT_LEDGER_INVALID"]
     }
   ]
 }

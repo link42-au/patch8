@@ -101,14 +101,14 @@ NVD carries CVE Program and other third-party material. CVE Record content has a
 | Dates | **ALLOW** published, last-modified, NVD analysis, and change-event times. |
 | Scores | **ALLOW** NIST-authored CVSS vectors/scores and their source labels. CVSS v2 `baseSeverity` is authorized only at its exact metric-level API path; it is not treated as a `cvssData` field. **CONDITIONAL** CNA/vendor scores: publish only when the value has verified CVE Record lineage or an independently allowed source. |
 | Descriptions | **CONDITIONAL**. Publish only a description that is byte-for-byte traceable to an official CVE Record covered by the CVE terms, with that lineage and notice. Do not publish NVD vendor comments or unidentified third-party prose. |
-| Affected products/packages/ranges | **ALLOW** NIST CPE applicability statements, exact ordered configuration roots/nodes and Boolean operators, CPE URIs, factual vendor/product names, and version bounds. Preserve `source=NIST/NVD` and do not imply vendor confirmation. CNA affected data is allowed only with verified CVE Record lineage. |
+| Affected products/packages/ranges | **ALLOW** NIST CPE applicability statements, exact ordered actual nodes and Boolean operators, CPE URIs, factual vendor/product names, and version bounds. The configuration container is not a node. Preserve `source=NIST/NVD` and do not imply vendor confirmation. CNA affected data is allowed only with verified CVE Record lineage. |
 | References | **ALLOW** URL, source label, and NVD tags as structured metadata. Do not mirror the linked page, its title/body, attachments, or vendor comment. Validate URL schemes before display. |
 | Raw JSON | Rights may permit some NIST/CVE content, but **do not publish** complete API pages because they mix rights holders and unnecessary envelope data. Private build cache: global maximum of two verified releases/90 days. |
 | History | **ALLOW** normalized NVD change-history events for allowed values; hash-only events for denied values. Do not publish raw third-party old/new prose. |
 
 **Attribution and notice.** Dataset card, application legal page, and generated notices must acknowledge NIST/NVD, include the exact non-endorsement notice, link the NIST data policy and NVD API terms, identify Link42 transformations, and include the CVE/MITRE notice wherever CVE Record text is present.
 
-**Refresh, authentication, and rate constraints.** Use modified-date windows, persist the last successful response watermark, and reconcile overlap. NVD recommends no more than one automated delta cycle every two hours and a six-second delay between requests. An API key raises available capacity but is optional, belongs to one requestor, must be sent in the documented header, and must never be shared or published. Respect current response headers and fail on throttling rather than increasing concurrency.
+**Refresh, authentication, and rate constraints.** Use the live `lastModStartDate` / `lastModEndDate` parameters, persist the last successful response watermark, and reconcile an exact overlap. The live API rejects `includeMatchStringChange`, so match-criteria-only changes are covered by mandatory periodic complete reconciliation rather than claimed by a delta. NVD timestamps without offsets are UTC and are normalized explicitly. NVD recommends no more than one automated delta cycle every two hours and a six-second delay between requests. An API key raises available capacity but is optional, belongs to one requestor, must be sent in the documented header, and must never be shared or published. Respect current response headers and fail on throttling rather than increasing concurrency.
 
 **Unresolved blocker.** None for the allow-listed fields. The parser must prove CVE lineage before enabling CVE descriptions or non-NIST scores; until then those fields are denied.
 
@@ -411,9 +411,10 @@ required notices, publication modes, immutable-revision requirements, and output
 by a producer manifest. NVD configuration/node identifiers are Link42 derivations from pinned source paths, not raw NVD
 fields. The complete semantic policy and data-content contract are independently sealed to their declared version pair.
 Any approved material policy or contract drift must increment both versions and add a new reviewed baseline; an existing
-version baseline is never changed in place. P3b's approved `2:2.0.0` transition adds only the exact NVD CVSS-v2
-severity/state paths and representation needed for source-specific metadata/configuration observations; it removes KEV
-release fields from per-entry rows without changing CISA's allowed source fields. No direct EPSS mode is approved.
+version baseline is never changed in place. P3b's historical `2:2.0.0` transition added the exact NVD CVSS-v2
+severity/state paths and source-specific metadata observations, and removed KEV release fields from per-entry rows.
+P3c's approved `3:3.0.0` transition removes nonexistent configuration-container operator/negate paths and represents
+only actual ordered NVD nodes; it does not add source fields or enable another source. No direct EPSS mode is approved.
 
 ```yaml
 policy_version: 1

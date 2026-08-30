@@ -28,12 +28,17 @@
     },
     {
       "name": "reject NVD when an exact configuration structural field is absent",
-      "mutations": [{ "operation": "delete", "path": "/sources/1/allowed_fields/14" }],
+      "mutations": [{ "operation": "delete", "path": "/sources/1/allowed_fields/13" }],
+      "expected_error_codes": ["NVD_STRUCTURE_RULE_INCOMPLETE", "SOURCE_POLICY_WIDENED"]
+    },
+    {
+      "name": "reject reintroducing a nonexistent NVD configuration-container operator",
+      "mutations": [{ "operation": "append", "path": "/sources/1/allowed_fields", "value": "cve.configurations[].operator" }],
       "expected_error_codes": ["NVD_STRUCTURE_RULE_INCOMPLETE", "SOURCE_POLICY_WIDENED"]
     },
     {
       "name": "reject treating Link42 configuration identity as a raw NVD field",
-      "mutations": [{ "operation": "set", "path": "/sources/1/allowed_fields/28", "value": "nvd.configuration.configuration_id" }],
+      "mutations": [{ "operation": "set", "path": "/sources/1/allowed_fields/27", "value": "nvd.configuration.configuration_id" }],
       "expected_error_codes": ["NVD_STRUCTURE_RULE_INCOMPLETE", "SOURCE_POLICY_WIDENED"]
     },
     {
@@ -107,7 +112,7 @@
       "expected_error_codes": ["SOURCE_POLICY_WIDENED"]
     },
     {
-      "name": "reject a coordinated GHSA repository and locator change with an updated source hash at policy 2.0.0",
+      "name": "reject a coordinated GHSA repository and locator change with an updated source hash at policy 3.0.0",
       "mutations": [
         { "operation": "set", "path": "/sources/4/repository", "value": "https://example.invalid/coordinated" },
         { "operation": "set", "path": "/sources/4/source_locator", "value": "https://example.invalid/coordinated" }
@@ -117,7 +122,7 @@
       "expected_error_codes": ["VERSION_TRANSITION_REQUIRED"]
     },
     {
-      "name": "reject a coordinated GHSA allowed-field change with an updated source hash at policy 2.0.0",
+      "name": "reject a coordinated GHSA allowed-field change with an updated source hash at policy 3.0.0",
       "mutations": [{ "operation": "set", "path": "/sources/4/allowed_fields/19", "value": "coordinated_normalized_field" }],
       "synchronize_policy_source_sha256": ["patch8_github_advisory_database"],
       "expected_error_codes": ["VERSION_TRANSITION_REQUIRED"]
