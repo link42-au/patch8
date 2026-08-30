@@ -208,12 +208,44 @@ class JsonTransport(Protocol):
         *,
         timeout_seconds: float,
         max_bytes: int,
+        remaining_seconds: Callable[[], float],
     ) -> JsonResponse: ...
 
 
 class UrllibTransport:
     @staticmethod
-    def _read_bounded(response: Any, max_bytes: int) -> bytes:
+    def _set_stream_timeout(response: Any, timeout_seconds: float) -> None:
+        is_closed = getattr(response, "isclosed", None)
+        if callable(is_closed) and is_closed():
+            return
+        candidates = [response]
+        visited: set[int] = set()
+        for _ in range(5):
+            children = []
+            for candidate in candidates:
+                if id(candidate) in visited:
+                    continue
+                visited.add(id(candidate))
+                setter = getattr(candidate, "settimeout", None)
+                if callable(setter):
+                    setter(timeout_seconds)
+                    return
+                for attribute in ("fp", "raw", "_sock"):
+                    child = getattr(candidate, attribute, None)
+                    if child is not None:
+                        children.append(child)
+            candidates = children
+        raise IngestionError("source response socket cannot enforce the operation deadline")
+
+    @classmethod
+    def _read_bounded(
+        cls,
+        response: Any,
+        max_bytes: int,
+        *,
+        timeout_seconds: float | None = None,
+        remaining_seconds: Callable[[], float] | None = None,
+    ) -> bytes:
         content_length = response.headers.get("Content-Length")
         if content_length is not None:
             try:
@@ -227,7 +259,18 @@ class UrllibTransport:
         chunks: list[bytes] = []
         acquired = 0
         while True:
-            chunk = response.read(min(64 * 1024, max_bytes - acquired + 1))
+            if remaining_seconds is not None:
+                remaining = remaining_seconds()
+                cls._set_stream_timeout(
+                    response,
+                    min(timeout_seconds if timeout_seconds is not None else remaining, remaining),
+                )
+            try:
+                chunk = response.read(min(64 * 1024, max_bytes - acquired + 1))
+            except TimeoutError as error:
+                if remaining_seconds is not None:
+                    remaining_seconds()
+                raise IngestionError("source response read timed out") from error
             if not chunk:
                 return b"".join(chunks)
             acquired += len(chunk)
@@ -249,13 +292,19 @@ class UrllibTransport:
         *,
         timeout_seconds: float,
         max_bytes: int,
+        remaining_seconds: Callable[[], float],
     ) -> JsonResponse:
         request = Request(url, headers=dict(headers), method="GET")
         try:
             with urlopen(request, timeout=timeout_seconds) as response:  # noqa: S310 - exact URLs are gated
                 final_url = self._final_url(response, url)
                 return JsonResponse(
-                    body=self._read_bounded(response, max_bytes),
+                    body=self._read_bounded(
+                        response,
+                        max_bytes,
+                        timeout_seconds=timeout_seconds,
+                        remaining_seconds=remaining_seconds,
+                    ),
                     headers={key.lower(): value for key, value in response.headers.items()},
                     status=response.status,
                     final_url=final_url,
@@ -263,7 +312,12 @@ class UrllibTransport:
         except HTTPError as error:
             final_url = self._final_url(error, url)
             return JsonResponse(
-                body=self._read_bounded(error, max_bytes),
+                body=self._read_bounded(
+                    error,
+                    max_bytes,
+                    timeout_seconds=timeout_seconds,
+                    remaining_seconds=remaining_seconds,
+                ),
                 headers={key.lower(): value for key, value in error.headers.items()},
                 status=error.code,
                 final_url=final_url,
@@ -353,6 +407,9 @@ class BoundedJsonClient:
                 headers or {},
                 timeout_seconds=transport_timeout,
                 max_bytes=remaining_bytes,
+                remaining_seconds=lambda: self._remaining_operation_seconds(
+                    "streamed response read"
+                ),
             )
             final_url = response.final_url or url
             final = urlparse(final_url)

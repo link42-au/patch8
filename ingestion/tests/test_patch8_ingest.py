@@ -55,10 +55,11 @@ class SequenceTransport:
         self.timeouts = []
         self.max_bytes = []
 
-    def get(self, url, headers, *, timeout_seconds, max_bytes):
+    def get(self, url, headers, *, timeout_seconds, max_bytes, remaining_seconds):
         self.urls.append(url)
         self.timeouts.append(timeout_seconds)
         self.max_bytes.append(max_bytes)
+        remaining_seconds()
         if not self.responses:
             raise AssertionError("unexpected request")
         response = self.responses.pop(0)
@@ -245,6 +246,48 @@ class NvdPaginationTests(unittest.TestCase):
         exact = FakeHttpResponse(b"12345678", content_length=8)
         self.assertEqual(UrllibTransport._read_bounded(exact, 8), b"12345678")
         self.assertTrue(all(size <= 9 for size in exact.read_sizes))
+
+        clock = FakeClock()
+
+        class SlowChunkedResponse:
+            headers = {}
+
+            def __init__(self):
+                self.read_calls = 0
+                self.timeouts = []
+
+            def settimeout(self, seconds):
+                self.timeouts.append(seconds)
+
+            def read(self, _size):
+                self.read_calls += 1
+                allowed = self.timeouts[-1]
+                intended = 0.06
+                clock.now += min(allowed, intended)
+                if allowed < intended:
+                    clock.now = 0.1
+                    raise TimeoutError("injected socket deadline")
+                return b"x"
+
+        slow = SlowChunkedResponse()
+
+        def remaining():
+            seconds = 0.1 - clock.now
+            if seconds <= 0:
+                raise BudgetExceeded("operation deadline exceeded before streamed response read")
+            return seconds
+
+        with self.assertRaisesRegex(BudgetExceeded, "streamed response read"):
+            UrllibTransport._read_bounded(
+                slow,
+                8,
+                timeout_seconds=45,
+                remaining_seconds=remaining,
+            )
+        self.assertEqual(slow.read_calls, 2)
+        self.assertAlmostEqual(slow.timeouts[0], 0.1)
+        self.assertAlmostEqual(slow.timeouts[1], 0.04)
+        self.assertAlmostEqual(clock.now, 0.1)
 
     def test_redirected_final_url_is_rejected_and_exact_identity_is_recorded(self):
         redirected = response(FIXTURES["nvd_pages"]["0"])

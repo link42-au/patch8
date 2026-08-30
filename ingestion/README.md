@@ -9,7 +9,8 @@ This directory contains the source-complete P4 NVD/KEV core. It is Python-standa
   them. A disabled source, unregistered field, changed same-version policy, or blocked description fails closed.
 - `BoundedJsonClient` permits only the reviewed HTTPS endpoint and enforces explicit request, streamed-byte, interval,
   throttle, retry-after, socket-timeout, total-deadline, and page ceilings. Acquisition validates declared length before
-  reading, caps streaming at remaining bytes plus one, rejects redirects/final-identity drift, and records the final URL.
+  reading, caps streaming at remaining bytes plus one, resets each blocking read to the smaller of its socket timeout and
+  remaining operation time, rejects redirects/final-identity drift, and records the final URL.
 - `NvdPager` implements deterministic full pagination and current `lastModStartDate` / `lastModEndDate` requests. Delta windows use an exact
   two-hour overlap, advance one contiguous watermark, validate NVD's documented
   publish-date order, reject page/total/schema drift, and persist an atomic restart cursor containing hashes and allowed
