@@ -318,6 +318,66 @@ class NvdPaginationTests(unittest.TestCase):
         with self.assertRaisesRegex(BudgetExceeded, "throttle retry"):
             retrying.get(NVD_URL, expected_url=NVD_URL)
 
+    def test_remaining_deadline_caps_transport_timeout_rate_wait_and_retry_wait(self):
+        limits = FetchLimits(
+            max_requests=2,
+            max_bytes=1_000_000,
+            max_pages=2,
+            timeout_seconds=45,
+            minimum_interval_seconds=2,
+            max_throttle_responses=1,
+            max_retry_after_seconds=2,
+            max_operation_seconds=1,
+        )
+
+        clock = FakeClock()
+        transport = SequenceTransport([response({})])
+        bounded = BoundedJsonClient(transport, limits, sleep=lambda _: None, monotonic=clock)
+        clock.now = 0.9
+        bounded.get(NVD_URL, expected_url=NVD_URL)
+        self.assertAlmostEqual(transport.timeouts[0], 0.1)
+
+        expired_transport = SequenceTransport([response({})])
+        expired = BoundedJsonClient(expired_transport, limits, sleep=lambda _: None, monotonic=clock)
+        clock.now = 2
+        with self.assertRaisesRegex(BudgetExceeded, "request"):
+            expired.get(NVD_URL, expected_url=NVD_URL)
+        self.assertEqual(expired_transport.urls, [])
+
+        rate_sleeps = []
+        clock = FakeClock()
+        rate_transport = SequenceTransport([response({})])
+        rate_limited = BoundedJsonClient(
+            rate_transport,
+            limits,
+            sleep=lambda seconds: (rate_sleeps.append(seconds), setattr(clock, "now", clock.now + seconds)),
+            monotonic=clock,
+        )
+        rate_limited._last_request_at = 0
+        clock.now = 0.9
+        with self.assertRaisesRegex(BudgetExceeded, "rate-limited request"):
+            rate_limited.get(NVD_URL, expected_url=NVD_URL)
+        self.assertAlmostEqual(rate_sleeps[0], 0.1)
+        self.assertEqual(rate_transport.urls, [])
+
+        retry_sleeps = []
+        clock = FakeClock()
+        retry_transport = SequenceTransport(
+            [response({}, status=429, headers={"retry-after": "2"})]
+        )
+        retrying = BoundedJsonClient(
+            retry_transport,
+            limits,
+            sleep=lambda seconds: (retry_sleeps.append(seconds), setattr(clock, "now", clock.now + seconds)),
+            monotonic=clock,
+        )
+        clock.now = 0.9
+        with self.assertRaisesRegex(BudgetExceeded, "throttle retry"):
+            retrying.get(NVD_URL, expected_url=NVD_URL)
+        self.assertAlmostEqual(retry_transport.timeouts[0], 0.1)
+        self.assertAlmostEqual(retry_sleeps[0], 0.1)
+        self.assertEqual(len(retry_transport.urls), 1)
+
     def test_throttling_retries_only_within_explicit_bound(self):
         transport = SequenceTransport(
             [response({}, status=429, headers={"retry-after": "0"}), response({}, status=429, headers={"retry-after": "0"})]

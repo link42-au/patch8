@@ -26,9 +26,9 @@ This directory contains the source-complete P4 NVD/KEV core. It is Python-standa
   `not_listed`; a missing, failed, or incomplete reconciliation remains `unknown`.
 - Full NVD reconciliation has a durable success clock and source-snapshot link. A delta cannot reset it or run after the
   seven-day maximum; an overdue or failed full reconciliation remains honestly stale and blocks further deltas.
-- The fixture corpus is synthetic and rights-safe. Forty tests cover pagination/overshoot, zero-result responses,
+- The fixture corpus is synthetic and rights-safe. Forty-one tests cover pagination/overshoot, zero-result responses,
   cross-page duplication, sealed checkpoint forgery, both page-commit crash boundaries, acquisition/deadline budgets,
-  redirects, throttle handling, canonical lists/order, schema drift, watermark gaps/overlap, full-reconciliation age,
+  remaining-time socket/wait caps, redirects, throttle handling, canonical lists/order, schema drift, watermark gaps/overlap, full-reconciliation age,
   KEV changes/removals/unknown state, immutable official repository URLs, and clean/delta equivalence.
 
 `KevPipeline` and `NvdPipeline` are active under contract 3. NVD provides normalized staging, restart,

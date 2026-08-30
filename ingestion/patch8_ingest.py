@@ -291,9 +291,26 @@ class BoundedJsonClient:
         self._last_request_at: float | None = None
         self._operation_started_at = self.monotonic()
 
-    def ensure_within_deadline(self, stage: str) -> None:
-        if self.monotonic() - self._operation_started_at > self.limits.max_operation_seconds:
+    def _remaining_operation_seconds(self, stage: str) -> float:
+        remaining = self.limits.max_operation_seconds - (
+            self.monotonic() - self._operation_started_at
+        )
+        if remaining <= 0:
             raise BudgetExceeded(f"operation deadline exceeded before {stage}")
+        return remaining
+
+    def ensure_within_deadline(self, stage: str) -> None:
+        self._remaining_operation_seconds(stage)
+
+    def _sleep_within_deadline(self, seconds: float, stage: str) -> None:
+        if seconds <= 0:
+            return
+        remaining = self._remaining_operation_seconds(stage)
+        bounded_seconds = min(seconds, remaining)
+        self.sleep(bounded_seconds)
+        if bounded_seconds < seconds:
+            raise BudgetExceeded(f"operation deadline exceeded before {stage}")
+        self.ensure_within_deadline(stage)
 
     def get(
         self,
@@ -326,12 +343,15 @@ class BoundedJsonClient:
             if self._last_request_at is not None:
                 delay = self.limits.minimum_interval_seconds - (now - self._last_request_at)
                 if delay > 0:
-                    self.sleep(delay)
-                    self.ensure_within_deadline("rate-limited request")
+                    self._sleep_within_deadline(delay, "rate-limited request")
+            transport_timeout = min(
+                self.limits.timeout_seconds,
+                self._remaining_operation_seconds("transport request"),
+            )
             response = self.transport.get(
                 url,
                 headers or {},
-                timeout_seconds=self.limits.timeout_seconds,
+                timeout_seconds=transport_timeout,
                 max_bytes=remaining_bytes,
             )
             final_url = response.final_url or url
@@ -361,8 +381,7 @@ class BoundedJsonClient:
                     or retry_after > self.limits.max_retry_after_seconds
                 ):
                     raise Throttled("source throttling exceeded the configured retry bound")
-                self.sleep(retry_after)
-                self.ensure_within_deadline("throttle retry")
+                self._sleep_within_deadline(retry_after, "throttle retry")
                 continue
             if response.status != 200:
                 raise IngestionError(f"source returned HTTP {response.status}")
